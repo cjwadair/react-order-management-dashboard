@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis, faPlus, faAngleDown, faCalendarDays, faXmark } from '@fortawesome/free-solid-svg-icons'
-import { DayPicker, type DateRange } from 'react-day-picker'
+import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis, faPlus } from '@fortawesome/free-solid-svg-icons'
 import { DropdownFilter } from '../components/DropdownFilter'
+import { DateRangeFilter } from '../components/DateRangeFilter'
 
 const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
 
@@ -29,22 +29,22 @@ const orders: Order[] = [
   {
     id: 'ORD-1001',
     orderType: 'Delivery',
-    orderDate: 'Apr 10, 2026',
+    orderDate: '10 Apr 2026',
     customer: 'Acme Foods',
     salesRep: 'Jordan Lee',
     total: '$1,240.00',
-    deliveryDate: 'Apr 16, 2026',
+    deliveryDate: '16 Apr 2026',
     status: 'Pending',
     tracking: 'OnTrack'
   },
   {
     id: 'ORD-1002',
     orderType: 'Return',
-    orderDate: 'Apr 11, 2026',
+    orderDate: '11 Apr 2026',
     customer: 'Northwind Traders',
     salesRep: 'Taylor Kim',
     total: '$(860.50)',
-    deliveryDate: 'Apr 18, 2026',
+    deliveryDate: '18 Apr 2026',
     status: 'Approved',
     tracking: 'Delayed',
     exceptionType: 'Return'
@@ -52,22 +52,22 @@ const orders: Order[] = [
   {
     id: 'ORD-1003',
     orderType: 'Delivery',
-    orderDate: 'Apr 12, 2026',
+    orderDate: '12 Apr 2026',
     customer: 'Globex Retail',
     salesRep: 'Avery Patel',
     total: '$2,149.99',
-    deliveryDate: 'Apr 19, 2026',
+    deliveryDate: '19 Apr 2026',
     status: 'Shipped',
     tracking: 'OnTrack'
   },
   {
     id: 'ORD-1004',
     orderType: 'Delivery',
-    orderDate: 'Apr 13, 2026',
+    orderDate: '13 Apr 2026',
     customer: 'Stark Supplies',
     salesRep: 'Morgan Chen',
     total: '$470.00',
-    deliveryDate: 'Apr 20, 2026',
+    deliveryDate: '20 Apr 2026',
     status: 'Delivered',
     tracking: 'Completed',
     exceptionType: 'Reduced Qty'
@@ -86,31 +86,24 @@ function normalizeDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
 }
 
-function formatDateLabel(date: Date) {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+function parseOrderDate(str: string) {
+  const [day, month, year] = str.split(' ')
+  return new Date(`${month} ${day}, ${year}`)
 }
 
 export function OrdersPage() {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const [searchTerm, setSearchTerm] = useState('')
-  const [orderDateRange, setOrderDateRange] = useState<DateRange | undefined>()
+  const [dateFilters, setDateFilters] = useState({
+    orderDate: { from: undefined as Date | undefined, to: new Date() },
+    deliveryDate: { from: undefined as Date | undefined, to: new Date() },
+    paymentDate: { from: undefined as Date | undefined, to: new Date() },
+  })
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
 
-  const dateRangeLabel = useMemo(() => {
-    if (!orderDateRange?.from) {
-      return 'Order date'
-    }
-
-    if (!orderDateRange.to) {
-      return formatDateLabel(orderDateRange.from)
-    }
-
-    return `${formatDateLabel(orderDateRange.from)} - ${formatDateLabel(orderDateRange.to)}`
-  }, [orderDateRange])
+  function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
+    setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
+  }
 
   const filteredOrders = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
@@ -132,21 +125,20 @@ export function OrdersPage() {
         return false
       }
 
-      if (!orderDateRange?.from) {
-        return true
+      const orderDate = normalizeDate(parseOrderDate(order.orderDate))
+      const { from, to } = dateFilters.orderDate
+
+      if (from && orderDate < normalizeDate(from)) {
+        return false
       }
 
-      const orderDate = normalizeDate(new Date(order.orderDate))
-      const fromDate = normalizeDate(orderDateRange.from)
-
-      if (!orderDateRange.to) {
-        return orderDate === fromDate
+      if (orderDate > normalizeDate(to)) {
+        return false
       }
 
-      const toDate = normalizeDate(orderDateRange.to)
-      return orderDate >= fromDate && orderDate <= toDate
+      return true
     })
-  }, [orderDateRange, searchTerm, selectedStatus])
+  }, [dateFilters, searchTerm, selectedStatus])
 
   function toggleDark() {
     const next = !isDark
@@ -198,39 +190,23 @@ export function OrdersPage() {
               />
           </div>
 
-          <details className="relative">
-            <summary className="inline-flex list-none cursor-pointer items-center gap-2 rounded-md border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 [&::-webkit-details-marker]:hidden dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-              <FontAwesomeIcon icon={faCalendarDays} className="text-accent-700" />
-              <span>{dateRangeLabel}</span>
-              <FontAwesomeIcon icon={faAngleDown} className="text-accent-700" />
-            </summary>
-
-            <div className="absolute left-0 z-20 mt-2 rounded-md border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-              <DayPicker mode="range" selected={orderDateRange} onSelect={setOrderDateRange} />
-              <div className="mt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setOrderDateRange(undefined)}
-                  className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <FontAwesomeIcon icon={faXmark} />
-                  Clear range
-                </button>
-              </div>
-            </div>
-          </details>
+          <DateRangeFilter
+            label="Order Date"
+            value={dateFilters.orderDate}
+            onChange={(update) => setDateFilter('orderDate', update)}
+          />
           
           <div className="flex items-center text-accent-700 rounded-md gap-2">
             <DropdownFilter
               options={orderStatuses}
               selectedValue={selectedStatus}
               onSelect={(status) => setSelectedStatus(status)}
-              placeholderLabel="Order Status"
-              clearLabel="Any Status"
-              getTriggerLabel={(selected) => `Order Status: ${selected ?? 'Any'}`}
+              placeholderValue='Any'
+              label="Order Status"
               menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
             />
           </div>
+          
           <button
             type="button"
             className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"

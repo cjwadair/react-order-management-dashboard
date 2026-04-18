@@ -2,14 +2,16 @@ import { useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
 
+type PlaceholderValue = 'Any' | 'All'
+
 type DropdownFilterProps<T> = {
   options: readonly T[]
   selectedValue: T | undefined
   onSelect: (value: T | undefined) => void
-  placeholderLabel: string
+  label: string
+  placeholderValue?: PlaceholderValue
   clearLabel?: string
   getOptionLabel?: (option: T) => string
-  getTriggerLabel?: (selected: T | undefined, placeholder: string) => string
   getOptionKey?: (option: T) => string
   className?: string
   triggerClassName?: string
@@ -26,14 +28,40 @@ const defaultMenuClassName =
 const defaultOptionClassName =
   'block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
 
+function pluralizeWord(word: string) {
+  if (word.endsWith('s')) {
+    return `${word}es`
+  }
+
+  if (word.endsWith('y') && word.length > 1) {
+    const previousChar = word[word.length - 2].toLowerCase()
+    if (!'aeiou'.includes(previousChar)) {
+      return `${word.slice(0, -1)}ies`
+    }
+  }
+
+  return `${word}s`
+}
+
+function pluralizeLabel(label: string) {
+  const words = label.trim().split(/\s+/)
+  if (words.length === 0) {
+    return label
+  }
+
+  const lastWord = words[words.length - 1]
+  words[words.length - 1] = pluralizeWord(lastWord)
+  return words.join(' ')
+}
+
 export function DropdownFilter<T>({
   options,
   selectedValue,
   onSelect,
-  placeholderLabel,
+  label,
+  placeholderValue,
   clearLabel,
   getOptionLabel = (option) => String(option),
-  getTriggerLabel,
   getOptionKey = (option) => String(option),
   className,
   triggerClassName,
@@ -46,11 +74,10 @@ export function DropdownFilter<T>({
     detailsRef.current?.removeAttribute('open')
   }
 
-  const triggerLabel = getTriggerLabel
-    ? getTriggerLabel(selectedValue, placeholderLabel)
-    : selectedValue !== undefined
-      ? getOptionLabel(selectedValue)
-      : placeholderLabel
+  const resolvedPlaceholderValue = placeholderValue ?? 'All'
+  const resolvedLabelValue = resolvedPlaceholderValue === 'Any' ? label : pluralizeLabel(label)
+  const resolvedClearLabel = clearLabel ?? `${resolvedPlaceholderValue} ${resolvedLabelValue}`
+  const triggerLabel = `${label}: ${selectedValue !== undefined ? getOptionLabel(selectedValue) : resolvedPlaceholderValue}`
 
   return (
     <details className={className ?? 'relative'} ref={detailsRef}>
@@ -60,15 +87,13 @@ export function DropdownFilter<T>({
       </summary>
 
       <div className={menuClassName ?? defaultMenuClassName}>
-        {clearLabel !== undefined && (
-          <button
-            type="button"
-            onClick={() => { onSelect(undefined); close() }}
-            className={optionClassName ?? defaultOptionClassName}
-          >
-            {clearLabel}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => { onSelect(undefined); close() }}
+          className={optionClassName ?? defaultOptionClassName}
+        >
+          {resolvedClearLabel}
+        </button>
         {options.map((option) => (
           <button
             key={getOptionKey(option)}
