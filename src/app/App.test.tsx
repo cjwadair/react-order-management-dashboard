@@ -13,5 +13,6 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Sales Orders' })).toBeInTheDocument()
     expect(screen.getByText('ORD-1001')).toBeInTheDocument()
+    expect(screen.getByText('Order Status: Any')).toBeInTheDocument()
   })
 })

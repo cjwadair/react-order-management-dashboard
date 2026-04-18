@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload } from '@fortawesome/free-solid-svg-icons'
-import { faPrint } from '@fortawesome/free-solid-svg-icons'
-import { faMoon } from '@fortawesome/free-solid-svg-icons'
-import { faSun } from '@fortawesome/free-solid-svg-icons'
-import { faMagnifyingGlass, faEllipsis, faPlus, faAngleDown, faCalendarDays, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis, faPlus, faAngleDown, faCalendarDays, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { DayPicker, type DateRange } from 'react-day-picker'
+import { DropdownFilter } from '../components/DropdownFilter'
 
 const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
 
@@ -25,6 +22,7 @@ type Order = {
   deliveryDate: string
   status: OrderStatus
   tracking: OrderTracking
+  exceptionType?: string
 }
 
 const orders: Order[] = [
@@ -48,7 +46,8 @@ const orders: Order[] = [
     total: '$(860.50)',
     deliveryDate: 'Apr 18, 2026',
     status: 'Approved',
-    tracking: 'Delayed'
+    tracking: 'Delayed',
+    exceptionType: 'Return'
   },
   {
     id: 'ORD-1003',
@@ -70,7 +69,8 @@ const orders: Order[] = [
     total: '$470.00',
     deliveryDate: 'Apr 20, 2026',
     status: 'Delivered',
-    tracking: 'Completed'
+    tracking: 'Completed',
+    exceptionType: 'Reduced Qty'
   },
 ]
 
@@ -98,6 +98,7 @@ export function OrdersPage() {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const [searchTerm, setSearchTerm] = useState('')
   const [orderDateRange, setOrderDateRange] = useState<DateRange | undefined>()
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
 
   const dateRangeLabel = useMemo(() => {
     if (!orderDateRange?.from) {
@@ -115,6 +116,12 @@ export function OrdersPage() {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
 
     return orders.filter((order) => {
+      const matchesStatus = !selectedStatus || order.status === selectedStatus
+
+      if (!matchesStatus) {
+        return false
+      }
+
       const matchesSearch =
         normalizedSearchTerm.length === 0 ||
         [order.id, order.customer, order.salesRep, order.status].some((value) =>
@@ -139,7 +146,7 @@ export function OrdersPage() {
       const toDate = normalizeDate(orderDateRange.to)
       return orderDate >= fromDate && orderDate <= toDate
     })
-  }, [orderDateRange, searchTerm])
+  }, [orderDateRange, searchTerm, selectedStatus])
 
   function toggleDark() {
     const next = !isDark
@@ -214,25 +221,15 @@ export function OrdersPage() {
           </details>
           
           <div className="flex items-center text-accent-700 rounded-md gap-2">
-            
-            <details className="relative">
-              <summary className="inline-flex list-none cursor-pointer items-center rounded-md border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 [&::-webkit-details-marker]:hidden dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-                <span>Status</span>
-                <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-accent-700" />
-              </summary>
-
-              <div className="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                {orderStatuses.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </details>
+            <DropdownFilter
+              options={orderStatuses}
+              selectedValue={selectedStatus}
+              onSelect={(status) => setSelectedStatus(status)}
+              placeholderLabel="Order Status"
+              clearLabel="Any Status"
+              getTriggerLabel={(selected) => `Order Status: ${selected ?? 'Any'}`}
+              menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+            />
           </div>
           <button
             type="button"
@@ -284,7 +281,7 @@ export function OrdersPage() {
               <th className="w-[10%] px-4 py-3 font-medium text-right">Order Total</th>
               <th className="w-[20%] px-4 py-3 font-medium">Sales Rep</th>
               <th className="w-[10%] px-4 py-3 font-medium">Delivery Date</th>
-              <th className="w-[10%] px-4 py-3 font-medium text-center"><div className="text-center w-28">Status</div></th>
+              <th className="w-[10%] px-4 py-3 font-medium text-center"><div className="text-center w-28">Order Status</div></th>
               <th className="w-[10%] px-8 py-3 font-medium text-center">Actions</th>
             </tr>
           </thead>
@@ -294,8 +291,8 @@ export function OrdersPage() {
                 <td className="w-[10%] px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                   <div className="flex flex-col">
                     <span>{order.id}</span>
-                    {order.orderType === 'Return' && (
-                      <span className="text-sm text-brand-500 dark:text-slate-400">{order.orderType}</span>
+                    {order.exceptionType && (
+                      <span className="text-sm text-brand-500 dark:text-slate-400">{order.exceptionType}</span>
                     )}
                   </div>
                 </td>
