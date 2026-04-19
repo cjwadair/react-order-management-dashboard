@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { DropdownFilter } from '../components/DropdownFilter'
 import { DateRangeFilter } from '../components/DateRangeFilter'
-import { AddFilterButton } from '../components/AddFilterButton'
+import { FilterBar, type FilterBarAdditionalFilter } from '../components/FilterBar'
 import { GridTable, type GridColumn } from '../components/GridTable'
 import { SearchInput } from '../components/SearchInput'
 
@@ -159,40 +159,23 @@ function getUniqueCustomers(): string[] {
   return Array.from(customers).sort()
 }
 
-export function OrdersPage() {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilters, setDateFilters] = useState({
+function getDefaultDateFilters() {
+  return {
     orderDate: { from: undefined as Date | undefined, to: new Date() },
     deliveryDate: { from: undefined as Date | undefined, to: new Date() },
     paymentDate: { from: undefined as Date | undefined, to: new Date() },
-  })
+  }
+}
+
+export function OrdersPage() {
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [searchTerm, setSearchTerm] = useState('')
+  const [dateFilters, setDateFilters] = useState(getDefaultDateFilters)
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
-  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<Set<AdditionalFilterId>>(new Set())
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
-
-  function activateAdditionalFilter(filterId: AdditionalFilterId) {
-    setActiveAdditionalFilters((prev) => {
-      const next = new Set(prev)
-      next.add(filterId)
-      return next
-    })
-  }
-
-  function deactivateAdditionalFilter(filterId: AdditionalFilterId) {
-    setActiveAdditionalFilters((prev) => {
-      const next = new Set(prev)
-      next.delete(filterId)
-      return next
-    })
-  }
 
   function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
-
-    if (value === undefined) {
-      deactivateAdditionalFilter(filterId)
-    }
   }
 
   function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
@@ -250,6 +233,27 @@ export function OrdersPage() {
     })
   }, [dateFilters, searchTerm, selectedStatus, additionalFilterValues])
 
+  const additionalFilters = useMemo<FilterBarAdditionalFilter<AdditionalFilterId>[]>(
+    () => additionalFilterConfigs.map((filter) => ({
+      id: filter.id,
+      label: filter.label,
+      options: filter.options,
+      selectedValue: additionalFilterValues[filter.id],
+      onSelect: (value) => setAdditionalFilterValue(filter.id, value),
+      placeholderValue: 'Any',
+      menuClassName:
+        'absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800',
+    })),
+    [additionalFilterValues],
+  )
+
+  function clearAllFilters() {
+    setSearchTerm('')
+    setDateFilters(getDefaultDateFilters())
+    setSelectedStatus(undefined)
+    setAdditionalFilterValues({})
+  }
+
   function toggleDark() {
     const next = !isDark
     setIsDark(next)
@@ -288,49 +292,36 @@ export function OrdersPage() {
       </div>
 
       <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8">
-        <span className="flex items-center gap-4">
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Search orders..."
-            ariaLabel="Search orders"
-          />
+        <FilterBar
+          filters={(
+            <>
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Search orders..."
+                ariaLabel="Search orders"
+              />
 
-          <DateRangeFilter
-            label="Order Date"
-            value={dateFilters.orderDate}
-            onChange={(update) => setDateFilter('orderDate', update)}
-          />
-          
-          <DropdownFilter
-            options={orderStatuses}
-            selectedValue={selectedStatus}
-            onSelect={(status) => setSelectedStatus(status)}
-            placeholderValue='Any'
-            label="Order Status"
-            menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
-          />
-          
-          {additionalFilterConfigs
-            .filter((filter) => activeAdditionalFilters.has(filter.id))
-            .map((filter) => (
+              <DateRangeFilter
+                label="Order Date"
+                value={dateFilters.orderDate}
+                onChange={(update) => setDateFilter('orderDate', update)}
+              />
+
               <DropdownFilter
-                key={filter.id}
-                options={filter.options()}
-                selectedValue={additionalFilterValues[filter.id]}
-                onSelect={(value) => setAdditionalFilterValue(filter.id, value)}
-                placeholderValue='Any'
-                label={filter.label}
+                options={orderStatuses}
+                selectedValue={selectedStatus}
+                onSelect={(status) => setSelectedStatus(status)}
+                placeholderValue="Any"
+                label="Order Status"
                 menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
               />
-            ))}
-          
-          <AddFilterButton
-            filters={additionalFilterConfigs.map(({ id, label }) => ({ id, label }))}
-            activeFilterIds={activeAdditionalFilters}
-            onActivateFilter={activateAdditionalFilter}
-          />
-        </span>
+            </>
+          )}
+          additionalFilters={additionalFilters}
+          onClearFilters={clearAllFilters}
+        />
+
         <div className="flex items-center gap-2">
           <button
             type="button"
