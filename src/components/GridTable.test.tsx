@@ -28,6 +28,30 @@ const testColumns: readonly GridColumn<TestItem>[] = [
 ]
 
 describe('GridTable', () => {
+  it('defaults missing column span to 1', () => {
+    const items: TestItem[] = [{ id: '1', first: 'A', second: 'B' }]
+    const columns: readonly GridColumn<TestItem>[] = [
+      {
+        field: 'first',
+      },
+      {
+        field: 'second',
+      },
+    ]
+
+    render(
+      <GridTable
+        items={items}
+        columns={columns}
+        totalColumns={2}
+        getRowKey={(item) => item.id}
+      />,
+    )
+
+    expect(screen.getByText('First').closest('div')).toHaveClass('col-span-1')
+    expect(screen.getByText('Second').closest('div')).toHaveClass('col-span-1')
+  })
+
   it('applies default header and cell classes with column overrides', () => {
     const items: TestItem[] = [{ id: '1', first: 'A', second: 'B' }]
     const columns: readonly GridColumn<TestItem>[] = [

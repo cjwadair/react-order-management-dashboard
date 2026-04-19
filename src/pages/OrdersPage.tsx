@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis } from '@fortawesome/free-solid-svg-icons'
+import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { DropdownFilter } from '../components/DropdownFilter'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { AddFilterButton } from '../components/AddFilterButton'
 import { GridTable, type GridColumn } from '../components/GridTable'
+import { SearchInput } from '../components/SearchInput'
 
 const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
 
@@ -80,8 +81,6 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   {
     field: 'id',
     header: 'Order Number',
-    span: 1,
-    cellClassName: 'px-4',
     customCell: (order) => (
       <div className="flex flex-col">
         <span>{order.id}</span>
@@ -97,35 +96,26 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
   {
     field: 'orderDate',
-    span: 1,
   },
   {
     field: 'total',
-    span: 1,
     align: 'right',
   },
   {
     field: 'salesRep',
-    span: 1,
   },
   {
     field: 'deliveryDate',
-    span: 1,
   },
   {
     field: 'status',
     header: 'Order Status',
-    span: 1,
     align: 'center',
   },
   {
     key: 'actions',
-    header: 'Actions',
-    customCell: <FontAwesomeIcon icon={faEllipsis} className="text-xl text-slate-500" />,
-    span: 1,
-    align: 'center',
-    headerClassName: 'px-8 py-3',
-    cellClassName: 'px-8 py-3 text-slate-700 dark:text-slate-300',
+    customCell: <FontAwesomeIcon icon={faEllipsis} className="text-xl text-brand-500" />,
+    align: 'center'
   },
 ]
 
@@ -299,16 +289,12 @@ export function OrdersPage() {
 
       <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8">
         <span className="flex items-center gap-4">
-          <div className="relative text-base text-slate-600">
-            <FontAwesomeIcon icon={faMagnifyingGlass} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="block w-full rounded-md border border-slate-400 bg-white py-2 pl-9 pr-3 focus:border-slate-500 focus:ring-slate-500 sm:text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400"
-              />
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search orders..."
+            ariaLabel="Search orders"
+          />
 
           <DateRangeFilter
             label="Order Date"
@@ -372,6 +358,7 @@ export function OrdersPage() {
         columns={orderTableColumns}
         totalColumns={9}
         getRowKey={(order) => order.id}
+        defaultSort={{ field: 'orderDate', order: 'desc' }}
         emptyState={(
           <div className="border-t border-slate-200 dark:border-slate-700">
             <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
