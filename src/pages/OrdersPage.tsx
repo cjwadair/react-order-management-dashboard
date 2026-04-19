@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis, faPlus } from '@fortawesome/free-solid-svg-icons'
+import { faDownload, faPrint, faMoon, faSun, faMagnifyingGlass, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { DropdownFilter } from '../components/DropdownFilter'
 import { DateRangeFilter } from '../components/DateRangeFilter'
+import { AddFilterButton } from '../components/AddFilterButton'
+import { GridTable, type GridColumn } from '../components/GridTable'
 
 const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
 
@@ -74,13 +76,58 @@ const orders: Order[] = [
   },
 ]
 
-const trackingClassName: Record<OrderTracking, string> = {
-  OnTrack: 'bg-emerald-100/50 border border-emerald-100 text-emerald-800',
-  AtRisk: 'bg-amber-100/50 border border-amber-100 text-amber-800',
-  Delayed: 'bg-red-100/50 border border-red-100 text-red-800',
-  Cancelled: 'bg-gray-100/50 border border-gray-100 text-gray-800',
-  Completed: 'bg-gray-100/50 border border-gray-100 text-gray-800',
-}
+const orderTableColumns: readonly GridColumn<Order>[] = [
+  {
+    field: 'id',
+    header: 'Order Number',
+    span: 1,
+    cellClassName: 'px-4',
+    customCell: (order) => (
+      <div className="flex flex-col">
+        <span>{order.id}</span>
+        {order.exceptionType && (
+          <span className="text-sm text-brand-500 dark:text-slate-400">{order.exceptionType}</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    field: 'customer',
+    span: 2,
+  },
+  {
+    field: 'orderDate',
+    span: 1,
+  },
+  {
+    field: 'total',
+    span: 1,
+    align: 'right',
+  },
+  {
+    field: 'salesRep',
+    span: 1,
+  },
+  {
+    field: 'deliveryDate',
+    span: 1,
+  },
+  {
+    field: 'status',
+    header: 'Order Status',
+    span: 1,
+    align: 'center',
+  },
+  {
+    key: 'actions',
+    header: 'Actions',
+    customCell: <FontAwesomeIcon icon={faEllipsis} className="text-xl text-slate-500" />,
+    span: 1,
+    align: 'center',
+    headerClassName: 'px-8 py-3',
+    cellClassName: 'px-8 py-3 text-slate-700 dark:text-slate-300',
+  },
+]
 
 function normalizeDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
@@ -89,6 +136,37 @@ function normalizeDate(date: Date) {
 function parseOrderDate(str: string) {
   const [day, month, year] = str.split(' ')
   return new Date(`${month} ${day}, ${year}`)
+}
+
+type AdditionalFilterId = 'deliveryDate' | 'salesRep' | 'customer'
+
+type AdditionalFilterValues = Partial<Record<AdditionalFilterId, string>>
+
+interface AdditionalFilterConfig {
+  id: AdditionalFilterId
+  label: string
+  options: () => string[]
+}
+
+const additionalFilterConfigs: AdditionalFilterConfig[] = [
+  { id: 'deliveryDate', label: 'Delivery Date', options: getUniqueDeliveryDates },
+  { id: 'salesRep', label: 'Sales Rep', options: getUniqueSalesReps },
+  { id: 'customer', label: 'Customer', options: getUniqueCustomers },
+]
+
+function getUniqueDeliveryDates(): string[] {
+  const dates = new Set(orders.map((order) => order.deliveryDate))
+  return Array.from(dates).sort()
+}
+
+function getUniqueSalesReps(): string[] {
+  const reps = new Set(orders.map((order) => order.salesRep))
+  return Array.from(reps).sort()
+}
+
+function getUniqueCustomers(): string[] {
+  const customers = new Set(orders.map((order) => order.customer))
+  return Array.from(customers).sort()
 }
 
 export function OrdersPage() {
@@ -100,6 +178,32 @@ export function OrdersPage() {
     paymentDate: { from: undefined as Date | undefined, to: new Date() },
   })
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
+  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<Set<AdditionalFilterId>>(new Set())
+  const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
+
+  function activateAdditionalFilter(filterId: AdditionalFilterId) {
+    setActiveAdditionalFilters((prev) => {
+      const next = new Set(prev)
+      next.add(filterId)
+      return next
+    })
+  }
+
+  function deactivateAdditionalFilter(filterId: AdditionalFilterId) {
+    setActiveAdditionalFilters((prev) => {
+      const next = new Set(prev)
+      next.delete(filterId)
+      return next
+    })
+  }
+
+  function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
+    setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
+
+    if (value === undefined) {
+      deactivateAdditionalFilter(filterId)
+    }
+  }
 
   function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
@@ -136,9 +240,25 @@ export function OrdersPage() {
         return false
       }
 
+      const matchesDeliveryDate =
+        !additionalFilterValues.deliveryDate || order.deliveryDate === additionalFilterValues.deliveryDate
+      if (!matchesDeliveryDate) {
+        return false
+      }
+
+      const matchesSalesRep = !additionalFilterValues.salesRep || order.salesRep === additionalFilterValues.salesRep
+      if (!matchesSalesRep) {
+        return false
+      }
+
+      const matchesCustomer = !additionalFilterValues.customer || order.customer === additionalFilterValues.customer
+      if (!matchesCustomer) {
+        return false
+      }
+
       return true
     })
-  }, [dateFilters, searchTerm, selectedStatus])
+  }, [dateFilters, searchTerm, selectedStatus, additionalFilterValues])
 
   function toggleDark() {
     const next = !isDark
@@ -196,24 +316,34 @@ export function OrdersPage() {
             onChange={(update) => setDateFilter('orderDate', update)}
           />
           
-          <div className="flex items-center text-accent-700 rounded-md gap-2">
-            <DropdownFilter
-              options={orderStatuses}
-              selectedValue={selectedStatus}
-              onSelect={(status) => setSelectedStatus(status)}
-              placeholderValue='Any'
-              label="Order Status"
-              menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
-            />
-          </div>
+          <DropdownFilter
+            options={orderStatuses}
+            selectedValue={selectedStatus}
+            onSelect={(status) => setSelectedStatus(status)}
+            placeholderValue='Any'
+            label="Order Status"
+            menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+          />
           
-          <button
-            type="button"
-            className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            <FontAwesomeIcon icon={faPlus} className="font-medium text-accent-700" />
-            <span className="ml-1">Filter</span>
-          </button>
+          {additionalFilterConfigs
+            .filter((filter) => activeAdditionalFilters.has(filter.id))
+            .map((filter) => (
+              <DropdownFilter
+                key={filter.id}
+                options={filter.options()}
+                selectedValue={additionalFilterValues[filter.id]}
+                onSelect={(value) => setAdditionalFilterValue(filter.id, value)}
+                placeholderValue='Any'
+                label={filter.label}
+                menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+              />
+            ))}
+          
+          <AddFilterButton
+            filters={additionalFilterConfigs.map(({ id, label }) => ({ id, label }))}
+            activeFilterIds={activeAdditionalFilters}
+            onActivateFilter={activateAdditionalFilter}
+          />
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -237,68 +367,19 @@ export function OrdersPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-slate-700 dark:bg-slate-900">
-        <table className="w-full table-fixed border-collapse text-left text-sm">
-          <colgroup>
-            <col className="w-[10%]" />
-            <col className="w-[20%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[20%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-          </colgroup>
-          <thead className="bg-accent-200 text-accent-700 dark:bg-slate-800 dark:text-slate-300 align-bottom">
-            <tr>
-              <th className="w-[10%] px-4 py-3 font-medium">Order Number</th>
-              <th className="w-[20%] px-4 py-3 font-medium">Customer</th>
-              <th className="w-[10%] px-4 py-3 font-medium">Order Date</th>
-              <th className="w-[10%] px-4 py-3 font-medium text-right">Order Total</th>
-              <th className="w-[20%] px-4 py-3 font-medium">Sales Rep</th>
-              <th className="w-[10%] px-4 py-3 font-medium">Delivery Date</th>
-              <th className="w-[10%] px-4 py-3 font-medium text-center"><div className="text-center w-28">Order Status</div></th>
-              <th className="w-[10%] px-8 py-3 font-medium text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody >
-            {filteredOrders.map((order) => (
-              <tr className="border-t border-slate-200 dark:border-slate-700" key={order.id}>
-                <td className="w-[10%] px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                  <div className="flex flex-col">
-                    <span>{order.id}</span>
-                    {order.exceptionType && (
-                      <span className="text-sm text-brand-500 dark:text-slate-400">{order.exceptionType}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="w-[20%] px-4 py-3 text-slate-700 dark:text-slate-300">{order.customer}</td>
-                <td className="w-[10%] px-4 py-3 text-slate-700 dark:text-slate-300">{order.orderDate}</td>
-                <td className="w-[10%] px-4 py-3 text-slate-700 dark:text-slate-300 text-right">{order.total}</td>
-                <td className="w-[20%] px-4 py-3 text-slate-700 dark:text-slate-300">{order.salesRep}</td>
-                <td className="w-[10%] px-4 py-3 text-slate-700 dark:text-slate-300">{order.deliveryDate}</td>
-                <td className="w-[10%] px-4 py-3 text-center">
-                  <div className={`rounded-xl px-2.5 py-1 text-sm font-semibold w-28 text-center ${trackingClassName[order.tracking as OrderTracking]}`}>
-                    {order.status}
-                  </div>
-                </td>
-                <td className="w-[10%] px-8 py-3 text-slate-700 dark:text-slate-300 text-center">
-                  <button type="button" className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300">
-                    <FontAwesomeIcon icon={faEllipsis} className="text-2xl" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredOrders.length === 0 && (
-              <tr className="border-t border-slate-200 dark:border-slate-700">
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                  No orders match your filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <GridTable<Order>
+        items={filteredOrders}
+        columns={orderTableColumns}
+        totalColumns={9}
+        getRowKey={(order) => order.id}
+        emptyState={(
+          <div className="border-t border-slate-200 dark:border-slate-700">
+            <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+              No orders match your filters.
+            </div>
+          </div>
+        )}
+      />
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
 
@@ -69,9 +69,28 @@ export function DropdownFilter<T>({
   optionClassName,
 }: DropdownFilterProps<T>) {
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!detailsRef.current?.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [isOpen])
 
   function close() {
-    detailsRef.current?.removeAttribute('open')
+    setIsOpen(false)
   }
 
   const resolvedPlaceholderValue = placeholderValue ?? 'All'
@@ -80,31 +99,39 @@ export function DropdownFilter<T>({
   const triggerLabel = `${label}: ${selectedValue !== undefined ? getOptionLabel(selectedValue) : resolvedPlaceholderValue}`
 
   return (
-    <details className={className ?? 'relative'} ref={detailsRef}>
-      <summary className={triggerClassName ?? defaultTriggerClassName}>
-        <span>{triggerLabel}</span>
-        <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-accent-700" />
-      </summary>
-
-      <div className={menuClassName ?? defaultMenuClassName}>
-        <button
-          type="button"
-          onClick={() => { onSelect(undefined); close() }}
-          className={optionClassName ?? defaultOptionClassName}
+    <div className="flex items-center text-accent-700 rounded-md gap-2">
+      <details className={className ?? 'relative'} ref={detailsRef} open={isOpen}>
+        <summary
+          className={triggerClassName ?? defaultTriggerClassName}
+          onClick={(event) => {
+            event.preventDefault()
+            setIsOpen((prev) => !prev)
+          }}
         >
-          {resolvedClearLabel}
-        </button>
-        {options.map((option) => (
+          <span>{triggerLabel}</span>
+          <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-accent-700" />
+        </summary>
+
+        <div className={menuClassName ?? defaultMenuClassName}>
           <button
-            key={getOptionKey(option)}
             type="button"
-            onClick={() => { onSelect(option); close() }}
+            onClick={() => { onSelect(undefined); close() }}
             className={optionClassName ?? defaultOptionClassName}
           >
-            {getOptionLabel(option)}
+            {resolvedClearLabel}
           </button>
-        ))}
-      </div>
-    </details>
+          {options.map((option) => (
+            <button
+              key={getOptionKey(option)}
+              type="button"
+              onClick={() => { onSelect(option); close() }}
+              className={optionClassName ?? defaultOptionClassName}
+            >
+              {getOptionLabel(option)}
+            </button>
+          ))}
+        </div>
+      </details>
+    </div>
   )
 }
