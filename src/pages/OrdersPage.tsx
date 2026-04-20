@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
-import { DropdownFilter } from '../components/DropdownFilter'
-import { DateRangeFilter } from '../components/DateRangeFilter'
-import { FilterBar, type FilterBarAdditionalFilter } from '../components/FilterBar'
+import { FilterBar, type FilterConfig } from '../components/FilterBar'
 import { GridTable, type GridColumn } from '../components/GridTable'
-import { SearchInput } from '../components/SearchInput'
 
 const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
 
@@ -132,18 +129,6 @@ type AdditionalFilterId = 'deliveryDate' | 'salesRep' | 'customer'
 
 type AdditionalFilterValues = Partial<Record<AdditionalFilterId, string>>
 
-interface AdditionalFilterConfig {
-  id: AdditionalFilterId
-  label: string
-  options: () => string[]
-}
-
-const additionalFilterConfigs: AdditionalFilterConfig[] = [
-  { id: 'deliveryDate', label: 'Delivery Date', options: getUniqueDeliveryDates },
-  { id: 'salesRep', label: 'Sales Rep', options: getUniqueSalesReps },
-  { id: 'customer', label: 'Customer', options: getUniqueCustomers },
-]
-
 function getUniqueDeliveryDates(): string[] {
   const dates = new Set(orders.map((order) => order.deliveryDate))
   return Array.from(dates).sort()
@@ -233,26 +218,68 @@ export function OrdersPage() {
     })
   }, [dateFilters, searchTerm, selectedStatus, additionalFilterValues])
 
-  const additionalFilters = useMemo<FilterBarAdditionalFilter<AdditionalFilterId>[]>(
-    () => additionalFilterConfigs.map((filter) => ({
-      id: filter.id,
-      label: filter.label,
-      options: filter.options,
-      selectedValue: additionalFilterValues[filter.id],
-      onSelect: (value) => setAdditionalFilterValue(filter.id, value),
+  const filters = useMemo<FilterConfig[]>(() => [
+    {
+      type: 'search',
+      id: 'search',
+      value: searchTerm,
+      onChange: setSearchTerm,
+      onClear: () => setSearchTerm(''),
+      placeholder: 'Search orders...',
+      ariaLabel: 'Search orders',
+    },
+    {
+      type: 'dateRange',
+      id: 'orderDate',
+      label: 'Order Date',
+      value: dateFilters.orderDate,
+      onChange: (update) => setDateFilter('orderDate', update),
+      onClear: () => setDateFilter('orderDate', { from: undefined, to: new Date() }),
+    },
+    {
+      type: 'dropdown',
+      id: 'status',
+      label: 'Order Status',
+      options: orderStatuses,
+      selectedValue: selectedStatus,
+      onSelect: (value) => setSelectedStatus(value as OrderStatus | undefined),
+      onClear: () => setSelectedStatus(undefined),
       placeholderValue: 'Any',
-      menuClassName:
-        'absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800',
-    })),
-    [additionalFilterValues],
-  )
-
-  function clearAllFilters() {
-    setSearchTerm('')
-    setDateFilters(getDefaultDateFilters())
-    setSelectedStatus(undefined)
-    setAdditionalFilterValues({})
-  }
+    },
+    {
+      type: 'dropdown',
+      id: 'deliveryDate',
+      label: 'Delivery Date',
+      options: getUniqueDeliveryDates,
+      selectedValue: additionalFilterValues.deliveryDate,
+      onSelect: (value) => setAdditionalFilterValue('deliveryDate', value),
+      onClear: () => setAdditionalFilterValue('deliveryDate', undefined),
+      placeholderValue: 'Any',
+      additional: true,
+    },
+    {
+      type: 'dropdown',
+      id: 'salesRep',
+      label: 'Sales Rep',
+      options: getUniqueSalesReps,
+      selectedValue: additionalFilterValues.salesRep,
+      onSelect: (value) => setAdditionalFilterValue('salesRep', value),
+      onClear: () => setAdditionalFilterValue('salesRep', undefined),
+      placeholderValue: 'Any',
+      additional: true,
+    },
+    {
+      type: 'dropdown',
+      id: 'customer',
+      label: 'Customer',
+      options: getUniqueCustomers,
+      selectedValue: additionalFilterValues.customer,
+      onSelect: (value) => setAdditionalFilterValue('customer', value),
+      onClear: () => setAdditionalFilterValue('customer', undefined),
+      placeholderValue: 'Any',
+      additional: true,
+    },
+  ], [searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues])
 
   function toggleDark() {
     const next = !isDark
@@ -293,33 +320,7 @@ export function OrdersPage() {
 
       <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8">
         <FilterBar
-          filters={(
-            <>
-              <SearchInput
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Search orders..."
-                ariaLabel="Search orders"
-              />
-
-              <DateRangeFilter
-                label="Order Date"
-                value={dateFilters.orderDate}
-                onChange={(update) => setDateFilter('orderDate', update)}
-              />
-
-              <DropdownFilter
-                options={orderStatuses}
-                selectedValue={selectedStatus}
-                onSelect={(status) => setSelectedStatus(status)}
-                placeholderValue="Any"
-                label="Order Status"
-                menuClassName="absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
-              />
-            </>
-          )}
-          additionalFilters={additionalFilters}
-          onClearFilters={clearAllFilters}
+          filters={filters}
         />
 
         <div className="flex items-center gap-2">
