@@ -25,16 +25,16 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
 
   return (
     <details className="relative">
-      <summary className="inline-flex list-none cursor-pointer items-center gap-1 rounded-md border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 [&::-webkit-details-marker]:hidden dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-        <FontAwesomeIcon icon={faCalendarDays} className="text-accent-700" />
+      <summary className="inline-flex list-none cursor-pointer items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700">
+        <FontAwesomeIcon icon={faCalendarDays} className="text-accent-800" />
         <span>{rangeLabel}</span>
-        <FontAwesomeIcon icon={faAngleDown} className="text-accent-700" />
+        <FontAwesomeIcon icon={faAngleDown} className="text-neutral-600" />
       </summary>
 
-      <div className="absolute left-0 z-20 mt-2 rounded-md border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+      <div className="absolute left-0 z-20 mt-2 rounded-md border border-neutral-200 bg-white p-3 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
         <div className="flex gap-4">
           <div>
-            <div className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">From</div>
+            <div className="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">From</div>
             <DayPicker
               mode="single"
               selected={value.from}
@@ -42,9 +42,9 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
               onSelect={(date) => onChange({ from: date })}
             />
           </div>
-          <div className="w-px self-stretch bg-slate-200 dark:bg-slate-700" />
+          <div className="w-px self-stretch bg-neutral-200 dark:bg-neutral-700" />
           <div>
-            <div className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">To</div>
+            <div className="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">To</div>
             <DayPicker
               mode="single"
               selected={value.to}
@@ -57,7 +57,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
           <button
             type="button"
             onClick={() => onChange({ from: undefined, to: new Date() })}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"
           >
             <FontAwesomeIcon icon={faXmark} />
             Clear range

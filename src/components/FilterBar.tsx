@@ -50,8 +50,12 @@ type FilterBarProps = {
 
 const defaultFiltersClassName = 'flex flex-wrap items-center gap-4'
 
+function mergeClassName(base: string, extra?: string) {
+  return extra ? `${base} ${extra}` : base
+}
+
 const defaultDropdownMenuClassName =
-  'absolute left-0 z-10 mt-2 w-44 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800'
+  'absolute left-0 z-10 mt-2 w-44 rounded-md border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800'
 
 export function FilterBar({
   filters = [],
@@ -134,7 +138,7 @@ export function FilterBar({
   }
 
   return (
-    <div className={filtersClassName ?? defaultFiltersClassName}>
+    <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
       {fixedFilters.map((filter) => (
         <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
       ))}
@@ -152,7 +156,7 @@ export function FilterBar({
       <button
         type="button"
         onClick={() => [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())}
-        className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+        className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700"
       >
         {clearFiltersLabel}
       </button>

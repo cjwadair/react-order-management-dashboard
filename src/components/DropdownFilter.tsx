@@ -20,13 +20,13 @@ type DropdownFilterProps<T> = {
 }
 
 const defaultTriggerClassName =
-  'inline-flex list-none cursor-pointer items-center rounded-md border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 [&::-webkit-details-marker]:hidden dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+  'inline-flex list-none cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
 
 const defaultMenuClassName =
-  'absolute left-0 z-10 mt-2 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800'
+  'absolute left-0 z-10 mt-2 rounded-md border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800'
 
 const defaultOptionClassName =
-  'block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
+  'block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700'
 
 function pluralizeWord(word: string) {
   if (word.endsWith('s')) {
@@ -99,7 +99,7 @@ export function DropdownFilter<T>({
   const triggerLabel = `${label}: ${selectedValue !== undefined ? getOptionLabel(selectedValue) : resolvedPlaceholderValue}`
 
   return (
-    <div className="flex items-center text-accent-700 rounded-md gap-2">
+    <div className="flex items-center text-neutral-700 rounded-md gap-2">
       <details className={className ?? 'relative'} ref={detailsRef} open={isOpen}>
         <summary
           className={triggerClassName ?? defaultTriggerClassName}
@@ -109,7 +109,7 @@ export function DropdownFilter<T>({
           }}
         >
           <span>{triggerLabel}</span>
-          <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-accent-700" />
+          <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-neutral-700" />
         </summary>
 
         <div className={menuClassName ?? defaultMenuClassName}>

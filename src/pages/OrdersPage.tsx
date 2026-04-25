@@ -18,7 +18,7 @@ type Order = {
   orderDate: string
   customer: string
   salesRep: string
-  total: string
+  total: number
   deliveryDate: string
   status: OrderStatus
   tracking: OrderTracking
@@ -32,7 +32,7 @@ const orders: Order[] = [
     orderDate: '10 Apr 2026',
     customer: 'Acme Foods',
     salesRep: 'Jordan Lee',
-    total: '$1,240.00',
+    total: 1240.00,
     deliveryDate: '16 Apr 2026',
     status: 'Pending',
     tracking: 'OnTrack'
@@ -43,7 +43,7 @@ const orders: Order[] = [
     orderDate: '11 Apr 2026',
     customer: 'Northwind Traders',
     salesRep: 'Taylor Kim',
-    total: '$(860.50)',
+    total: -860.50,
     deliveryDate: '18 Apr 2026',
     status: 'Approved',
     tracking: 'Delayed',
@@ -55,7 +55,7 @@ const orders: Order[] = [
     orderDate: '12 Apr 2026',
     customer: 'Globex Retail',
     salesRep: 'Avery Patel',
-    total: '$2,149.99',
+    total: 2149.99,
     deliveryDate: '19 Apr 2026',
     status: 'Shipped',
     tracking: 'OnTrack'
@@ -66,7 +66,7 @@ const orders: Order[] = [
     orderDate: '13 Apr 2026',
     customer: 'Stark Supplies',
     salesRep: 'Morgan Chen',
-    total: '$470.00',
+    total: 470.00,
     deliveryDate: '20 Apr 2026',
     status: 'Delivered',
     tracking: 'Completed',
@@ -82,7 +82,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
       <div className="flex flex-col">
         <span>{order.id}</span>
         {order.exceptionType && (
-          <span className="text-sm text-brand-500 dark:text-slate-400">{order.exceptionType}</span>
+          <span className="text-sm text-brand-500 dark:text-neutral-400">{order.exceptionType}</span>
         )}
       </div>
     ),
@@ -93,21 +93,32 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
   {
     field: 'orderDate',
+    initialSortOrder: 'desc',
   },
   {
     field: 'total',
     align: 'right',
+    valueFormatter: (value) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencySign: 'accounting' }).format(value as number),
   },
   {
     field: 'salesRep',
   },
   {
     field: 'deliveryDate',
+    initialSortOrder: 'desc',
   },
   {
     field: 'status',
     header: 'Order Status',
     align: 'center',
+    customCell: (order) => {
+      return (
+        <div className="flex justify-center">
+          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{order.status}</span>
+        </div>
+      )
+    },
   },
   {
     key: 'actions',
@@ -289,17 +300,17 @@ export function OrdersPage() {
 
   return (
     <section className="space-y-5 w-full">
-      <div className="w-full border-b border-slate-200 dark:border-slate-700 dark:bg-slate-900">
-        <div className="mx-auto flex h-12 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12">
+      <div className="w-full border-b border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12">
           <div>
-            <h2 className="text-xl text-accent-900 font-medium tracking-tight dark:text-slate-100">Sales Orders</h2>
+            <h2 className="text-xl text-neutral-800 font-medium tracking-tight dark:text-neutral-100">Sales Orders</h2>
           </div>
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-10">
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={toggleDark}
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-accent-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-400"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-accent-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-400"
                 aria-label="Toggle dark mode"
               >
                 {isDark
@@ -307,18 +318,18 @@ export function OrdersPage() {
                   : <FontAwesomeIcon icon={faMoon} className="text-lg" />}
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col gap-x-2 text-right text-base leading-4 dark:text-slate-100">
-                <div className="text-accent-900 font-medium">Person Name</div>
-                <div className="text-slate-500 text-sm dark:text-slate-400">Company Name</div>
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-x-2 text-right text-base leading-4 dark:text-neutral-100">
+                <div className="text-neutral-800 font-medium">Person Name</div>
+                <div className="text-accent-700 text-sm dark:text-neutral-400">Company Name</div>
               </div>
-              <div className="flex items-center rounded-full bg-slate-200 px-2 py-1 text-lg font-semibold text-accent-700 dark:bg-slate-700 dark:text-accent-100">PN</div>
+              <div className="flex items-center rounded-full bg-accent-200 px-2 py-1 text-lg font-semibold text-accent-800 dark:bg-neutral-700 dark:text-neutral-100">PN</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8">
+      <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-10">
         <FilterBar
           filters={filters}
         />
@@ -332,15 +343,15 @@ export function OrdersPage() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center rounded-md border border-slate-400 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"
           >
-            <FontAwesomeIcon icon={faDownload} className="text-lg text-accent-700" />
+            <FontAwesomeIcon icon={faDownload} className="text-lg text-accent-800" />
           </button>
           <button
             type="button"
-            className="inline-flex items-center rounded-md border border-slate-400 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"
           >
-            <FontAwesomeIcon icon={faPrint} className="text-lg text-accent-700" />
+            <FontAwesomeIcon icon={faPrint} className="text-lg text-accent-800" />
           </button>
         </div>
       </div>
@@ -350,10 +361,10 @@ export function OrdersPage() {
         columns={orderTableColumns}
         totalColumns={9}
         getRowKey={(order) => order.id}
-        defaultSort={{ field: 'orderDate', order: 'desc' }}
+        initialSort={{ field: 'orderDate', order: 'desc' }}
         emptyState={(
-          <div className="border-t border-slate-200 dark:border-slate-700">
-            <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+          <div className="border-t border-neutral-200 dark:border-neutral-700">
+            <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
               No orders match your filters.
             </div>
           </div>

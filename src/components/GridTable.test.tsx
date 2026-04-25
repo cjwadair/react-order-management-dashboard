@@ -73,17 +73,17 @@ describe('GridTable', () => {
         columns={columns}
         totalColumns={3}
         getRowKey={(item) => item.id}
-        headerClassName="bg-slate-100"
-        rowClassName="border-t border-slate-200"
+        headerClassName="bg-neutral-100"
+        rowClassName="border-t border-neutral-200"
         defaultHeaderCellClassName="px-2 py-1"
-        defaultCellClassName="text-slate-700"
+        defaultCellClassName="text-neutral-700"
       />,
     )
 
     expect(screen.getByText('First').closest('div')).toHaveClass('px-2', 'py-1')
     expect(screen.getByText('Second').closest('div')).toHaveClass('px-2', 'py-1', 'px-8')
-    expect(screen.getByText('A').closest('div')).toHaveClass('text-slate-700')
-    expect(screen.getByText('B').closest('div')).toHaveClass('text-slate-700', 'font-semibold')
+    expect(screen.getByText('A').closest('div')).toHaveClass('text-neutral-700')
+    expect(screen.getByText('B').closest('div')).toHaveClass('text-neutral-700', 'font-semibold')
   })
 
   it('renders row values by field when provided', () => {
@@ -95,8 +95,8 @@ describe('GridTable', () => {
         columns={testColumns}
         totalColumns={3}
         getRowKey={(item) => item.id}
-        headerClassName="bg-slate-100"
-        rowClassName="border-t border-slate-200"
+        headerClassName="bg-neutral-100"
+        rowClassName="border-t border-neutral-200"
       />,
     )
 
@@ -114,9 +114,9 @@ describe('GridTable', () => {
         totalColumns={3}
         getRowKey={(item) => item.id}
       >
-        <GridTable.Header className="bg-slate-100" />
+        <GridTable.Header className="bg-neutral-100" />
         <GridTable.Rows<TestItem>
-          className="border-t border-slate-200"
+          className="border-t border-neutral-200"
           renderCell={(column, item) => {
             if (column.field === 'first') return item.first
             if (column.field === 'second') return item.second

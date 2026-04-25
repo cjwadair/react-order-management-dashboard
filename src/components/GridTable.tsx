@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useMemo, type ReactNode } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons'
 
 type ColumnAlign = 'left' | 'center' | 'right'
 
@@ -11,9 +13,7 @@ export type SortState<TItem> = {
 
 type GridColumnFieldKey<TItem> = TItem extends object ? (keyof TItem & string) : string
 
-export type GridColumn<TItem = unknown> = {
-  field?: GridColumnFieldKey<TItem>
-  key?: string
+type GridColumnBase<TItem> = {
   header?: ReactNode
   customHeader?: ReactNode | ((column: GridColumn<TItem>, columnIndex: number) => ReactNode)
   customCell?: ReactNode | ((item: TItem, column: GridColumn<TItem>, rowIndex: number) => ReactNode)
@@ -23,10 +23,24 @@ export type GridColumn<TItem = unknown> = {
   cellClassName?: string
 }
 
+type GridColumnWithField<TItem> = GridColumnBase<TItem> & {
+  field: GridColumnFieldKey<TItem>
+  key?: string
+  initialSortOrder?: SortOrder
+  valueFormatter?: (value: unknown, item: TItem) => string
+}
+
+type GridColumnWithKey<TItem> = GridColumnBase<TItem> & {
+  key: string
+  field?: GridColumnFieldKey<TItem>
+}
+
+export type GridColumn<TItem = unknown> = GridColumnWithField<TItem> | GridColumnWithKey<TItem>
+
 export type GridTableProps<TItem> = {
   items: readonly TItem[]
   columns: readonly GridColumn<TItem>[]
-  defaultSort?: Partial<SortState<TItem>>
+  initialSort?: Partial<SortState<TItem>>
   totalColumns: number
   getRowKey: (item: TItem, index: number) => string
   children?: ReactNode
@@ -104,6 +118,16 @@ const alignmentClassNames: Record<ColumnAlign, string> = {
   right: 'text-right',
 }
 
+const defaultContainerClassName = 'overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
+const defaultBodyClassName = 'flex flex-col w-full text-left text-sm'
+const defaultRowLayoutClassName = 'grid gap-2 justify-stretch items-center w-full'
+const defaultHeaderClassName = 'h-14 bg-accent-100 border border-accent-200 text-accent-800 dark:bg-neutral-800 dark:text-neutral-300 align-bottom'
+const headerCellClassName = 'px-4 font-medium'
+const cellClassName = 'px-4 text-neutral-800 dark:text-neutral-300'
+const defaultRowHeightClassName = 'h-16 border-t border-neutral-200 dark:border-neutral-700'
+const defaultEmptyStateClassName = 'border-t border-neutral-200 dark:border-neutral-700'
+const defaultEmptyStateMessageClassName = 'px-4 py-8 text-center text-neutral-500 dark:text-neutral-400'
+
 type GridTableContextValue<TItem> = {
   items: readonly TItem[]
   columns: readonly GridColumn<TItem>[]
@@ -128,7 +152,9 @@ function formatFieldName(fieldName: string): string {
 }
 
 function getColumnKey<TItem>(column: GridColumn<TItem>): string {
-  return column.key ?? (column.field as string) ?? 'unknown'
+  const key = column.key ?? (column.field as string | undefined)
+  if (!key) throw new Error('GridColumn must specify field or key.')
+  return key
 }
 
 function getColumnHeader<TItem>(column: GridColumn<TItem>): ReactNode {
@@ -202,14 +228,6 @@ function getRequiredColumnSpanClassName<TItem = unknown>(column: GridColumn<TIte
   return spanClassName
 }
 
-function SortIndicator({ order }: { order: SortOrder }) {
-  return (
-    <span className="inline-flex flex-col leading-none ml-1 opacity-80" aria-hidden>
-      <span className={order === 'asc' ? 'opacity-100' : 'opacity-30'}>▲</span>
-      <span className={order === 'desc' ? 'opacity-100' : 'opacity-30'}>▼</span>
-    </span>
-  )
-}
 
 function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridTableHeaderProps<TItem>) {
   const { totalColumns, columns, defaultHeaderCellClassName, sort, setSort } = useGridTableContext<TItem>()
@@ -220,12 +238,12 @@ function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridT
     if (sort && sort.field === column.field) {
       setSort({ field: column.field, order: sort.order === 'asc' ? 'desc' : 'asc' })
     } else {
-      setSort({ field: column.field, order: 'asc' })
+      setSort({ field: column.field, order: (column as GridColumnWithField<TItem>).initialSortOrder ?? 'asc' })
     }
   }
 
   return (
-    <div className={joinClassNames('grid gap-2 justify-stretch items-center w-full', totalColumnsClassName, className)}>
+    <div className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}>
       {columns.map((column, columnIndex) => {
         const spanClassName = getRequiredColumnSpanClassName(column)
         const columnKey = getColumnKey(column)
@@ -240,7 +258,7 @@ function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridT
               getAlignmentClassName(column.align),
               defaultHeaderCellClassName,
               column.headerClassName,
-              isSortable ? 'cursor-pointer select-none' : undefined,
+              isSortable ? 'cursor-pointer select-none group' : undefined,
             )}
             onClick={isSortable ? () => handleHeaderClick(column) : undefined}
             role={isSortable ? 'button' : undefined}
@@ -249,9 +267,6 @@ function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridT
             aria-sort={isActive ? (sort!.order === 'asc' ? 'ascending' : 'descending') : undefined}
           >
             {(() => {
-              const headerOverride = renderHeaderCell?.(column, columnIndex)
-              if (headerOverride !== undefined) return headerOverride
-
               if (typeof column.customHeader === 'function') {
                 return column.customHeader(column, columnIndex)
               }
@@ -260,10 +275,17 @@ function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridT
                 return column.customHeader
               }
 
+              const headerOverride = renderHeaderCell?.(column, columnIndex)
+              if (headerOverride !== undefined) return headerOverride
+
+              const hoverOrder = (column as GridColumnWithField<TItem>).initialSortOrder ?? 'asc'
               return (
-                <span className="inline-flex items-center">
+                <span className="inline-flex items-center gap-1.5">
                   {getColumnHeader(column)}
-                  {isActive && <SortIndicator order={sort!.order} />}
+                  {isActive
+                    ? <FontAwesomeIcon icon={sort!.order === 'asc' ? faArrowUp : faArrowDown} className="text-xs" aria-hidden />
+                    : isSortable && <FontAwesomeIcon icon={hoverOrder === 'asc' ? faArrowUp : faArrowDown} className="text-xs opacity-0 group-hover:opacity-40 transition-opacity" aria-hidden />
+                  }
                 </span>
               )
             })()}
@@ -278,12 +300,12 @@ function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TIte
   const { items, columns, totalColumns, getRowKey, defaultCellClassName } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
 
-  return items.map((item, index) => (
+  return <>{items.map((item, index) => (
     <div
       key={getRowKey(item, index)}
-      className={joinClassNames('grid gap-2 justify-stretch items-center w-full', totalColumnsClassName, className)}
+      className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}
     >
-      {columns.map((column, columnIndex) => {
+      {columns.map((column) => {
         const spanClassName = getRequiredColumnSpanClassName(column)
         const columnKey = getColumnKey(column)
 
@@ -301,12 +323,15 @@ function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TIte
                 return column.customCell
               }
 
-              const custom = renderCell?.(column, item, columnIndex)
+              const custom = renderCell?.(column, item, index)
+
               if (custom !== undefined) return custom
 
               const itemRecord = item as Record<string, unknown>
               if (column.field && column.field in itemRecord) {
-                return String(itemRecord[column.field] ?? '')
+                const value = itemRecord[column.field]
+                const formatter = (column as GridColumnWithField<TItem>).valueFormatter
+                return formatter ? formatter(value, item) : String(value ?? '')
               }
 
               return null
@@ -315,7 +340,7 @@ function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TIte
         )
       })}
     </div>
-  ))
+  ))}</>
 }
 
 function GridTableRow({ className, children }: GridTableRowProps) {
@@ -323,7 +348,7 @@ function GridTableRow({ className, children }: GridTableRowProps) {
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
 
   return (
-    <div className={joinClassNames('grid gap-2 justify-stretch items-center w-full', totalColumnsClassName, className)}>
+    <div className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}>
       {children}
     </div>
   )
@@ -355,14 +380,14 @@ function GridTableRoot<TItem>({
   emptyState,
   containerClassName,
   bodyClassName,
-  defaultHeaderCellClassName = 'px-4 py-3 font-medium',
-  defaultCellClassName = 'px-4 py-3 text-slate-700 dark:text-slate-300',
+  defaultHeaderCellClassName = headerCellClassName,
+  defaultCellClassName = cellClassName,
   validateSpans = true,
-  headerClassName = 'bg-accent-200 text-accent-900 dark:bg-slate-800 dark:text-slate-300 align-bottom',
+  headerClassName = defaultHeaderClassName,
   renderHeaderCell,
-  rowClassName = 'border-t border-slate-200 dark:border-slate-700',
+  rowClassName = defaultRowHeightClassName,
   renderCell,
-  defaultSort,
+  initialSort: initialSortProp,
 }: GridTableProps<TItem>) {
   if (validateSpans) {
     const { valid, spanTotal } = validateColumnSpans(columns, totalColumns)
@@ -379,9 +404,9 @@ function GridTableRoot<TItem>({
   )
 
   const initialSort = useMemo<SortState<TItem> | null>(() => {
-    const field = (defaultSort?.field ?? firstSortableField) as GridColumnFieldKey<TItem> | null
+    const field = (initialSortProp?.field ?? firstSortableField) as GridColumnFieldKey<TItem> | null
     if (!field) return null
-    return { field, order: defaultSort?.order ?? 'asc' }
+    return { field, order: initialSortProp?.order ?? 'asc' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -406,23 +431,23 @@ function GridTableRoot<TItem>({
   }, [items, sort])
 
   const resolvedEmptyState = emptyState ?? (
-    <div className="border-t border-slate-200 dark:border-slate-700">
-      <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+    <div className={defaultEmptyStateClassName}>
+      <div className={defaultEmptyStateMessageClassName}>
         No data available.
       </div>
     </div>
   )
 
   return (
-    <GridTableContext.Provider value={{ items: sortedItems, columns, totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort }}
+    <GridTableContext.Provider value={{ items: sortedItems, columns: columns as readonly GridColumn<any>[], totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort }}
     >
       <div
         className={joinClassNames(
-          'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-slate-700 dark:bg-slate-900',
+          defaultContainerClassName,
           containerClassName,
         )}
       >
-        <div className={joinClassNames('flex flex-col w-full text-left text-sm', bodyClassName)}>
+        <div className={joinClassNames(defaultBodyClassName, bodyClassName)}>
           {children ? (
             children
           ) : (

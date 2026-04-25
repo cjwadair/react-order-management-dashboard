@@ -19,13 +19,13 @@ type AddFilterButtonProps<T extends string> = {
 }
 
 const defaultTriggerClassName =
-  'inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 cursor-pointer rounded-md list-none'
+  'inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700 cursor-pointer rounded-md list-none'
 
 const defaultMenuClassName =
-  'absolute left-0 z-10 mt-2 rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800'
+  'absolute left-0 z-10 mt-2 rounded-md border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-800'
 
 const defaultOptionClassName =
-  'block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700 first:rounded-t-sm last:rounded-b-sm'
+  'block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700 first:rounded-t-sm last:rounded-b-sm'
 
 export function AddFilterButton<T extends string>({
   filters,
@@ -73,7 +73,7 @@ export function AddFilterButton<T extends string>({
           setIsOpen((prev) => !prev)
         }}
       >
-        <FontAwesomeIcon icon={faPlus} className="font-medium text-accent-700" />
+        <FontAwesomeIcon icon={faPlus} className="font-medium text-neutral-700" />
         <span className="ml-1">{triggerLabel}</span>
         <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
       </summary>
