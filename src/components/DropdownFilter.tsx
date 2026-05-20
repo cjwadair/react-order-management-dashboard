@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
+import { capitalizeWords, pluralizeWord } from '../utils/formatters'
 
 type PlaceholderValue = 'Any' | 'All'
 
@@ -28,30 +29,16 @@ const defaultMenuClassName =
 const defaultOptionClassName =
   'block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700'
 
-function pluralizeWord(word: string) {
-  if (word.endsWith('s')) {
-    return `${word}es`
-  }
-
-  if (word.endsWith('y') && word.length > 1) {
-    const previousChar = word[word.length - 2].toLowerCase()
-    if (!'aeiou'.includes(previousChar)) {
-      return `${word.slice(0, -1)}ies`
-    }
-  }
-
-  return `${word}s`
-}
-
-function pluralizeLabel(label: string) {
+function formatLabel(label: string) {
   const words = label.trim().split(/\s+/)
+  
   if (words.length === 0) {
     return label
   }
 
   const lastWord = words[words.length - 1]
   words[words.length - 1] = pluralizeWord(lastWord)
-  return words.join(' ')
+  return capitalizeWords(words.join(' '))
 }
 
 export function DropdownFilter<T>({
@@ -94,9 +81,9 @@ export function DropdownFilter<T>({
   }
 
   const resolvedPlaceholderValue = placeholderValue ?? 'All'
-  const resolvedLabelValue = resolvedPlaceholderValue === 'Any' ? label : pluralizeLabel(label)
+  const resolvedLabelValue = resolvedPlaceholderValue === 'Any' ? label : formatLabel(label)
   const resolvedClearLabel = clearLabel ?? `${resolvedPlaceholderValue} ${resolvedLabelValue}`
-  const triggerLabel = `${label}: ${selectedValue !== undefined ? getOptionLabel(selectedValue) : resolvedPlaceholderValue}`
+  const triggerLabel = `${label}: ${selectedValue !== undefined ? capitalizeWords(getOptionLabel(selectedValue)) : resolvedPlaceholderValue}`
 
   return (
     <div className="flex items-center text-neutral-700 rounded-md gap-2">
@@ -127,7 +114,7 @@ export function DropdownFilter<T>({
               onClick={() => { onSelect(option); close() }}
               className={optionClassName ?? defaultOptionClassName}
             >
-              {getOptionLabel(option)}
+              {capitalizeWords(getOptionLabel(option))}
             </button>
           ))}
         </div>

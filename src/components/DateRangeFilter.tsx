@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCalendarDays, faAngleDown, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { DayPicker } from 'react-day-picker'
 import { useMemo } from 'react'
+import { formattedDate } from '../utils/formatters'
 
 type DateRange = { from: Date | undefined; to: Date }
 
@@ -11,16 +12,9 @@ type DateRangeFilterProps = {
   onChange: (update: Partial<DateRange>) => void
 }
 
-function formatDateLabel(date: Date) {
-  const day = date.getDate().toString().padStart(2, '0')
-  const month = date.toLocaleString('en-US', { month: 'short' })
-  const year = date.getFullYear()
-  return `${day} ${month} ${year}`
-}
-
 export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
   const rangeLabel = useMemo(() => {
-    return `${label}: ${value.from ? formatDateLabel(value.from) : 'Any'} to ${formatDateLabel(value.to)}`
+    return `${label}: ${value.from ? formattedDate(value.from) : 'Any'} to ${formattedDate(value.to)}`
   }, [label, value])
 
   return (

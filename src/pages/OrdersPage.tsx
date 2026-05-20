@@ -1,14 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar, type FilterConfig } from '../components/FilterBar'
 import { GridTable, type GridColumn } from '../components/GridTable'
+import { capitalizeWords, formattedDate } from '../utils/formatters'
 
-const orderTrackingOptions = ['OnTrack', 'AtRisk', 'Delayed', 'Cancelled', 'Completed'] as const
-
-type OrderTracking = (typeof orderTrackingOptions)[number]
-
-const orderStatuses = ['Pending', 'Approved', 'Fulfillment', 'Shipped', 'Delivered'] as const
+const orderStatuses = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'completed'] as const
 
 type OrderStatus = (typeof orderStatuses)[number]
 
@@ -21,58 +18,32 @@ type Order = {
   total: number
   deliveryDate: string
   status: OrderStatus
-  tracking: OrderTracking
   exceptionType?: string
 }
 
-const orders: Order[] = [
-  {
-    id: 'ORD-1001',
-    orderType: 'Delivery',
-    orderDate: '10 Apr 2026',
-    customer: 'Acme Foods',
-    salesRep: 'Jordan Lee',
-    total: 1240.00,
-    deliveryDate: '16 Apr 2026',
-    status: 'Pending',
-    tracking: 'OnTrack'
-  },
-  {
-    id: 'ORD-1002',
-    orderType: 'Return',
-    orderDate: '11 Apr 2026',
-    customer: 'Northwind Traders',
-    salesRep: 'Taylor Kim',
-    total: -860.50,
-    deliveryDate: '18 Apr 2026',
-    status: 'Approved',
-    tracking: 'Delayed',
-    exceptionType: 'Return'
-  },
-  {
-    id: 'ORD-1003',
-    orderType: 'Delivery',
-    orderDate: '12 Apr 2026',
-    customer: 'Globex Retail',
-    salesRep: 'Avery Patel',
-    total: 2149.99,
-    deliveryDate: '19 Apr 2026',
-    status: 'Shipped',
-    tracking: 'OnTrack'
-  },
-  {
-    id: 'ORD-1004',
-    orderType: 'Delivery',
-    orderDate: '13 Apr 2026',
-    customer: 'Stark Supplies',
-    salesRep: 'Morgan Chen',
-    total: 470.00,
-    deliveryDate: '20 Apr 2026',
-    status: 'Delivered',
-    tracking: 'Completed',
-    exceptionType: 'Reduced Qty'
-  },
-]
+type SalesOrderResponse = {
+  order_number: string
+  order_type: string
+  order_date: string
+  delivery_date: string
+  order_status: string
+  order_total: number
+  consignee: { name: string }
+  sales_rep: { name: string }
+}
+
+function mapOrder(o: SalesOrderResponse): Order {
+  return {
+    id: o.order_number,
+    orderType: o.order_type,
+    orderDate: o.order_date,
+    customer: o.consignee.name,
+    salesRep: o.sales_rep.name,
+    total: o.order_total,
+    deliveryDate: o.delivery_date,
+    status: o.order_status as OrderStatus,
+  }
+}
 
 const orderTableColumns: readonly GridColumn<Order>[] = [
   {
@@ -94,6 +65,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   {
     field: 'orderDate',
     initialSortOrder: 'desc',
+    valueFormatter: (value) => formattedDate(parseOrderDate(value as string)),
   },
   {
     field: 'total',
@@ -107,6 +79,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   {
     field: 'deliveryDate',
     initialSortOrder: 'desc',
+    valueFormatter: (value) => formattedDate(parseOrderDate(value as string)),
   },
   {
     field: 'status',
@@ -115,7 +88,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
     customCell: (order) => {
       return (
         <div className="flex justify-center">
-          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{order.status}</span>
+          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{capitalizeWords(order.status)}</span>
         </div>
       )
     },
@@ -127,33 +100,30 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
 ]
 
-function normalizeDate(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+function parseOrderDate(str: string) {
+  // ISO format from API: "2026-04-10" — parse as local date to avoid UTC offset shift
+  const [year, month, day] = str.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
-function parseOrderDate(str: string) {
-  const [day, month, year] = str.split(' ')
-  return new Date(`${month} ${day}, ${year}`)
+function getUniqueDeliveryDates(orders: Order[]): string[] {
+  const dates = new Set(orders.map((order) => order.deliveryDate))
+  return Array.from(dates).sort()
+}
+
+function getUniqueSalesReps(orders: Order[]): string[] {
+  const reps = new Set(orders.map((order) => order.salesRep))
+  return Array.from(reps).sort()
+}
+
+function getUniqueCustomers(orders: Order[]): string[] {
+  const customers = new Set(orders.map((order) => order.customer))
+  return Array.from(customers).sort()
 }
 
 type AdditionalFilterId = 'deliveryDate' | 'salesRep' | 'customer'
 
 type AdditionalFilterValues = Partial<Record<AdditionalFilterId, string>>
-
-function getUniqueDeliveryDates(): string[] {
-  const dates = new Set(orders.map((order) => order.deliveryDate))
-  return Array.from(dates).sort()
-}
-
-function getUniqueSalesReps(): string[] {
-  const reps = new Set(orders.map((order) => order.salesRep))
-  return Array.from(reps).sort()
-}
-
-function getUniqueCustomers(): string[] {
-  const customers = new Set(orders.map((order) => order.customer))
-  return Array.from(customers).sort()
-}
 
 function getDefaultDateFilters() {
   return {
@@ -165,10 +135,36 @@ function getDefaultDateFilters() {
 
 export function OrdersPage() {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilters, setDateFilters] = useState(getDefaultDateFilters)
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+
+    if (searchTerm.trim()) params.set('search', searchTerm.trim())
+    if (selectedStatus) params.set('status', selectedStatus)
+    if (dateFilters.orderDate.from) params.set('order_date_from', dateFilters.orderDate.from.toISOString().slice(0, 10))
+    if (dateFilters.orderDate.to) params.set('order_date_to', dateFilters.orderDate.to.toISOString().slice(0, 10))
+    if (additionalFilterValues.deliveryDate) params.set('delivery_date', additionalFilterValues.deliveryDate)
+    if (additionalFilterValues.salesRep) params.set('sales_rep', additionalFilterValues.salesRep)
+    if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
+
+    const query = params.size > 0 ? `?${params}` : ''
+
+    fetch(`/api/v1/sales_orders${query}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`)
+        return res.json() as Promise<SalesOrderResponse[]>
+      })
+      .then((data) => setOrders(data.map(mapOrder)))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load orders'))
+      .finally(() => setIsLoading(false))
+  }, [searchTerm, dateFilters, selectedStatus, additionalFilterValues])
 
   function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
@@ -177,57 +173,6 @@ export function OrdersPage() {
   function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
   }
-
-  const filteredOrders = useMemo(() => {
-    const normalizedSearchTerm = searchTerm.trim().toLowerCase()
-
-    return orders.filter((order) => {
-      const matchesStatus = !selectedStatus || order.status === selectedStatus
-
-      if (!matchesStatus) {
-        return false
-      }
-
-      const matchesSearch =
-        normalizedSearchTerm.length === 0 ||
-        [order.id, order.customer, order.salesRep, order.status].some((value) =>
-          value.toLowerCase().includes(normalizedSearchTerm),
-        )
-
-      if (!matchesSearch) {
-        return false
-      }
-
-      const orderDate = normalizeDate(parseOrderDate(order.orderDate))
-      const { from, to } = dateFilters.orderDate
-
-      if (from && orderDate < normalizeDate(from)) {
-        return false
-      }
-
-      if (orderDate > normalizeDate(to)) {
-        return false
-      }
-
-      const matchesDeliveryDate =
-        !additionalFilterValues.deliveryDate || order.deliveryDate === additionalFilterValues.deliveryDate
-      if (!matchesDeliveryDate) {
-        return false
-      }
-
-      const matchesSalesRep = !additionalFilterValues.salesRep || order.salesRep === additionalFilterValues.salesRep
-      if (!matchesSalesRep) {
-        return false
-      }
-
-      const matchesCustomer = !additionalFilterValues.customer || order.customer === additionalFilterValues.customer
-      if (!matchesCustomer) {
-        return false
-      }
-
-      return true
-    })
-  }, [dateFilters, searchTerm, selectedStatus, additionalFilterValues])
 
   const filters = useMemo<FilterConfig[]>(() => [
     {
@@ -261,7 +206,7 @@ export function OrdersPage() {
       type: 'dropdown',
       id: 'deliveryDate',
       label: 'Delivery Date',
-      options: getUniqueDeliveryDates,
+      options: () => getUniqueDeliveryDates(orders),
       selectedValue: additionalFilterValues.deliveryDate,
       onSelect: (value) => setAdditionalFilterValue('deliveryDate', value),
       onClear: () => setAdditionalFilterValue('deliveryDate', undefined),
@@ -272,7 +217,7 @@ export function OrdersPage() {
       type: 'dropdown',
       id: 'salesRep',
       label: 'Sales Rep',
-      options: getUniqueSalesReps,
+      options: () => getUniqueSalesReps(orders),
       selectedValue: additionalFilterValues.salesRep,
       onSelect: (value) => setAdditionalFilterValue('salesRep', value),
       onClear: () => setAdditionalFilterValue('salesRep', undefined),
@@ -283,14 +228,14 @@ export function OrdersPage() {
       type: 'dropdown',
       id: 'customer',
       label: 'Customer',
-      options: getUniqueCustomers,
+      options: () => getUniqueCustomers(orders),
       selectedValue: additionalFilterValues.customer,
       onSelect: (value) => setAdditionalFilterValue('customer', value),
       onClear: () => setAdditionalFilterValue('customer', undefined),
       placeholderValue: 'Any',
       additional: true,
     },
-  ], [searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues])
+  ], [orders, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues])
 
   function toggleDark() {
     const next = !isDark
@@ -298,10 +243,43 @@ export function OrdersPage() {
     document.documentElement.classList.toggle('dark', next)
   }
 
+  function renderTableContent() {
+    if (error) {
+      return (
+        <div className="border-t border-neutral-200 dark:border-neutral-700">
+          <div className="px-4 py-8 text-center text-red-600 dark:text-red-400">{error}</div>
+        </div>
+      )
+    }
+    if (isLoading) {
+      return (
+        <div className="border-t border-neutral-200 dark:border-neutral-700">
+          <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">Loading orders...</div>
+        </div>
+      )
+    }
+    return (
+      <GridTable<Order>
+        items={orders}
+        columns={orderTableColumns}
+        totalColumns={9}
+        getRowKey={(order) => order.id}
+        initialSort={{ field: 'orderDate', order: 'desc' }}
+        emptyState={(
+          <div className="border-t border-neutral-200 dark:border-neutral-700">
+            <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
+              No orders match your filters.
+            </div>
+          </div>
+        )}
+      />
+    )
+  }
+
   return (
     <section className="space-y-5 w-full">
-      <div className="w-full border-b border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900">
-        <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12">
+      <div className="w-full dark:bg-neutral-900">
+        <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-2">
           <div>
             <h2 className="text-xl text-neutral-800 font-medium tracking-tight dark:text-neutral-100">Sales Orders</h2>
           </div>
@@ -329,7 +307,7 @@ export function OrdersPage() {
         </div>
       </div>
 
-      <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-10">
+      <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8 mb-4">
         <FilterBar
           filters={filters}
         />
@@ -356,20 +334,7 @@ export function OrdersPage() {
         </div>
       </div>
 
-      <GridTable<Order>
-        items={filteredOrders}
-        columns={orderTableColumns}
-        totalColumns={9}
-        getRowKey={(order) => order.id}
-        initialSort={{ field: 'orderDate', order: 'desc' }}
-        emptyState={(
-          <div className="border-t border-neutral-200 dark:border-neutral-700">
-            <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
-              No orders match your filters.
-            </div>
-          </div>
-        )}
-      />
+      {renderTableContent()}
     </section>
   )
 }
