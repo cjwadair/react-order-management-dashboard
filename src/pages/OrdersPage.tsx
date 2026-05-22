@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar, type FilterConfig } from '../components/FilterBar'
-import { GridTable, type GridColumn } from '../components/GridTable'
+import { GridTable, type GridColumn, type SortState } from '../components/GridTable'
 import { capitalizeWords, formattedDate } from '../utils/formatters'
 
 const orderStatuses = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'completed'] as const
@@ -15,9 +15,9 @@ type Order = {
   orderDate: string
   customer: string
   salesRep: string
-  total: number
+  orderTotal: number
   deliveryDate: string
-  status: OrderStatus
+  orderStatus: OrderStatus
   exceptionType?: string
 }
 
@@ -39,9 +39,9 @@ function mapOrder(o: SalesOrderResponse): Order {
     orderDate: o.order_date,
     customer: o.consignee.name,
     salesRep: o.sales_rep.name,
-    total: o.order_total,
+    orderTotal: o.order_total,
     deliveryDate: o.delivery_date,
-    status: o.order_status as OrderStatus,
+    orderStatus: o.order_status as OrderStatus,
   }
 }
 
@@ -68,7 +68,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
     valueFormatter: (value) => formattedDate(parseOrderDate(value as string)),
   },
   {
-    field: 'total',
+    field: 'orderTotal',
     align: 'right',
     valueFormatter: (value) =>
       new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencySign: 'accounting' }).format(value as number),
@@ -82,13 +82,13 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
     valueFormatter: (value) => formattedDate(parseOrderDate(value as string)),
   },
   {
-    field: 'status',
+    field: 'orderStatus',
     header: 'Order Status',
     align: 'center',
     customCell: (order) => {
       return (
         <div className="flex justify-center">
-          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{capitalizeWords(order.status)}</span>
+          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{capitalizeWords(order.orderStatus)}</span>
         </div>
       )
     },
@@ -141,6 +141,7 @@ export function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilters, setDateFilters] = useState(getDefaultDateFilters)
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
+  const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
 
   useEffect(() => {
@@ -153,6 +154,8 @@ export function OrdersPage() {
     if (additionalFilterValues.deliveryDate) params.set('delivery_date', additionalFilterValues.deliveryDate)
     if (additionalFilterValues.salesRep) params.set('sales_rep', additionalFilterValues.salesRep)
     if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
+    params.set('sort_by', sort.field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`))
+    params.set('sort_order', sort.order)
 
     const query = params.size > 0 ? `?${params}` : ''
 
@@ -164,7 +167,7 @@ export function OrdersPage() {
       .then((data) => setOrders(data.map(mapOrder)))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load orders'))
       .finally(() => setIsLoading(false))
-  }, [searchTerm, dateFilters, selectedStatus, additionalFilterValues])
+  }, [searchTerm, dateFilters, selectedStatus, additionalFilterValues, sort])
 
   function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
@@ -264,7 +267,8 @@ export function OrdersPage() {
         columns={orderTableColumns}
         totalColumns={9}
         getRowKey={(order) => order.id}
-        initialSort={{ field: 'orderDate', order: 'desc' }}
+        sort={sort}
+        onSortChange={setSort}
         emptyState={(
           <div className="border-t border-neutral-200 dark:border-neutral-700">
             <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons'
 
@@ -40,7 +40,8 @@ export type GridColumn<TItem = unknown> = GridColumnWithField<TItem> | GridColum
 export type GridTableProps<TItem> = {
   items: readonly TItem[]
   columns: readonly GridColumn<TItem>[]
-  initialSort?: Partial<SortState<TItem>>
+  sort: SortState<TItem>
+  onSortChange: (sort: SortState<TItem>) => void
   totalColumns: number
   getRowKey: (item: TItem, index: number) => string
   children?: ReactNode
@@ -374,6 +375,8 @@ function GridTableCell({ columnKey, className, children }: GridTableCellProps) {
 function GridTableRoot<TItem>({
   items,
   columns,
+  sort,
+  onSortChange,
   totalColumns,
   getRowKey,
   children,
@@ -387,7 +390,6 @@ function GridTableRoot<TItem>({
   renderHeaderCell,
   rowClassName = defaultRowHeightClassName,
   renderCell,
-  initialSort: initialSortProp,
 }: GridTableProps<TItem>) {
   if (validateSpans) {
     const { valid, spanTotal } = validateColumnSpans(columns, totalColumns)
@@ -396,39 +398,6 @@ function GridTableRoot<TItem>({
       throw new Error(`Column spans must total ${totalColumns}, received ${spanTotal}.`)
     }
   }
-
-  const firstSortableField = useMemo(
-    () => columns.find((c) => c.field)?.field ?? null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  )
-
-  const initialSort = useMemo<SortState<TItem> | null>(() => {
-    const field = (initialSortProp?.field ?? firstSortableField) as GridColumnFieldKey<TItem> | null
-    if (!field) return null
-    return { field, order: initialSortProp?.order ?? 'asc' }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const [sort, setSort] = useState<SortState<TItem> | null>(initialSort)
-
-  const sortedItems = useMemo(() => {
-    if (!sort) return items
-    return [...items].sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[sort.field]
-      const bVal = (b as Record<string, unknown>)[sort.field]
-      if (aVal == null && bVal == null) return 0
-      if (aVal == null) return 1
-      if (bVal == null) return -1
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sort.order === 'asc' ? aVal - bVal : bVal - aVal
-      }
-      const aStr = String(aVal)
-      const bStr = String(bVal)
-      const cmp = aStr.localeCompare(bStr)
-      return sort.order === 'asc' ? cmp : -cmp
-    })
-  }, [items, sort])
 
   const resolvedEmptyState = emptyState ?? (
     <div className={defaultEmptyStateClassName}>
@@ -439,7 +408,7 @@ function GridTableRoot<TItem>({
   )
 
   return (
-    <GridTableContext.Provider value={{ items: sortedItems, columns: columns as readonly GridColumn<any>[], totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort }}
+    <GridTableContext.Provider value={{ items, columns: columns as readonly GridColumn<any>[], totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange }}
     >
       <div
         className={joinClassNames(
