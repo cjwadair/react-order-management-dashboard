@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faMoon, faSun, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar, type FilterConfig } from '../components/FilterBar'
@@ -32,6 +32,13 @@ type SalesOrderResponse = {
   sales_rep: { name: string }
 }
 
+type SalesOrderMeta = {
+  page: number
+  per_page: number
+  total_count: number
+  total_pages: number
+}
+
 function mapOrder(o: SalesOrderResponse): Order {
   return {
     id: o.order_number,
@@ -43,6 +50,12 @@ function mapOrder(o: SalesOrderResponse): Order {
     deliveryDate: o.delivery_date,
     orderStatus: o.order_status as OrderStatus,
   }
+}
+
+function parseOrderDate(str: string) {
+  // ISO format from API: "2026-04-10" — parse as local date to avoid UTC offset shift
+  const [year, month, day] = str.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
 const orderTableColumns: readonly GridColumn<Order>[] = [
@@ -100,25 +113,14 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
 ]
 
-function parseOrderDate(str: string) {
-  // ISO format from API: "2026-04-10" — parse as local date to avoid UTC offset shift
-  const [year, month, day] = str.split('-').map(Number)
-  return new Date(year, month - 1, day)
-}
-
 function getUniqueDeliveryDates(orders: Order[]): string[] {
   const dates = new Set(orders.map((order) => order.deliveryDate))
   return Array.from(dates).sort()
 }
 
-function getUniqueSalesReps(orders: Order[]): string[] {
-  const reps = new Set(orders.map((order) => order.salesRep))
-  return Array.from(reps).sort()
-}
-
-function getUniqueCustomers(orders: Order[]): string[] {
-  const customers = new Set(orders.map((order) => order.customer))
-  return Array.from(customers).sort()
+type FilterOptions = {
+  salesReps: string[]
+  customers: string[]
 }
 
 type AdditionalFilterId = 'deliveryDate' | 'salesRep' | 'customer'
@@ -142,9 +144,13 @@ export function OrdersPage() {
   const [dateFilters, setDateFilters] = useState(getDefaultDateFilters)
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
   const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
+  const [page, setPage] = useState<number>(1)
+  const [totalPages, setTotalPages] = useState<number>(1)
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ salesReps: [], customers: [] })
+  const prevPageRef = useRef(0)
 
-  useEffect(() => {
+  function fetchOrders(pageNum: number, append = false) {
     const params = new URLSearchParams()
 
     if (searchTerm.trim()) params.set('search', searchTerm.trim())
@@ -156,25 +162,50 @@ export function OrdersPage() {
     if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
     params.set('sort_by', sort.field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`))
     params.set('sort_order', sort.order)
+    if (pageNum > 1) params.set('page', pageNum.toString())
 
     const query = params.size > 0 ? `?${params}` : ''
 
     fetch(`/api/v1/sales_orders${query}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`)
-        return res.json() as Promise<SalesOrderResponse[]>
+        return res.json() as Promise<{data: SalesOrderResponse[], meta: SalesOrderMeta}>
       })
-      .then((data) => setOrders(data.map(mapOrder)))
+      .then((json) => {
+        setOrders(prev => append ? [...prev, ...json.data.map(mapOrder)] : json.data.map(mapOrder))
+        setTotalPages(json.meta.total_pages)
+      })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load orders'))
       .finally(() => setIsLoading(false))
-  }, [searchTerm, dateFilters, selectedStatus, additionalFilterValues, sort])
+  }
+
+  useEffect(() => {
+    fetch('/api/v1/filter_options')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch filter options: ${res.status}`)
+        return res.json() as Promise<{ sales_reps: string[]; customers: string[] }>
+      })
+      .then((json) => setFilterOptions({ salesReps: json.sales_reps, customers: json.customers }))
+      .catch((err: unknown) => console.error(err))
+  }, [])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const shouldAppend = page > 1 && page > prevPageRef.current
+    prevPageRef.current = page
+    fetchOrders(page, shouldAppend)
+    return () => { prevPageRef.current = 0 }
+  }, [searchTerm, dateFilters, selectedStatus, additionalFilterValues, sort, page])
+
 
   function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
+    setPage(1)
   }
 
   function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
+    setPage(1)
   }
 
   const filters = useMemo<FilterConfig[]>(() => [
@@ -182,8 +213,8 @@ export function OrdersPage() {
       type: 'search',
       id: 'search',
       value: searchTerm,
-      onChange: setSearchTerm,
-      onClear: () => setSearchTerm(''),
+      onChange: (v) => { setSearchTerm(v); setPage(1) },
+      onClear: () => { setSearchTerm(''); setPage(1) },
       placeholder: 'Search orders...',
       ariaLabel: 'Search orders',
     },
@@ -201,8 +232,8 @@ export function OrdersPage() {
       label: 'Order Status',
       options: orderStatuses,
       selectedValue: selectedStatus,
-      onSelect: (value) => setSelectedStatus(value as OrderStatus | undefined),
-      onClear: () => setSelectedStatus(undefined),
+      onSelect: (value) => { setSelectedStatus(value as OrderStatus | undefined); setPage(1) },
+      onClear: () => { setSelectedStatus(undefined); setPage(1) },
       placeholderValue: 'Any',
     },
     {
@@ -220,7 +251,7 @@ export function OrdersPage() {
       type: 'dropdown',
       id: 'salesRep',
       label: 'Sales Rep',
-      options: () => getUniqueSalesReps(orders),
+      options: filterOptions.salesReps,
       selectedValue: additionalFilterValues.salesRep,
       onSelect: (value) => setAdditionalFilterValue('salesRep', value),
       onClear: () => setAdditionalFilterValue('salesRep', undefined),
@@ -231,14 +262,14 @@ export function OrdersPage() {
       type: 'dropdown',
       id: 'customer',
       label: 'Customer',
-      options: () => getUniqueCustomers(orders),
+      options: filterOptions.customers,
       selectedValue: additionalFilterValues.customer,
       onSelect: (value) => setAdditionalFilterValue('customer', value),
       onClear: () => setAdditionalFilterValue('customer', undefined),
       placeholderValue: 'Any',
       additional: true,
     },
-  ], [orders, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues])
+  ], [filterOptions, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues, orders])
 
   function toggleDark() {
     const next = !isDark
@@ -268,7 +299,10 @@ export function OrdersPage() {
         totalColumns={9}
         getRowKey={(order) => order.id}
         sort={sort}
-        onSortChange={setSort}
+        onSortChange={(s) => { setSort(s); setPage(1) }}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
         emptyState={(
           <div className="border-t border-neutral-200 dark:border-neutral-700">
             <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
@@ -283,7 +317,7 @@ export function OrdersPage() {
   return (
     <section className="space-y-5 w-full">
       <div className="w-full dark:bg-neutral-900">
-        <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-2">
+        <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12">
           <div>
             <h2 className="text-xl text-neutral-800 font-medium tracking-tight dark:text-neutral-100">Sales Orders</h2>
           </div>
@@ -337,8 +371,10 @@ export function OrdersPage() {
           </button>
         </div>
       </div>
-
-      {renderTableContent()}
+      
+      <div className="max-h-screen h-screen">
+        {renderTableContent()}
+      </div>
     </section>
   )
 }
