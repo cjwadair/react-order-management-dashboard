@@ -40,7 +40,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
 
   return (
     <details ref={detailsRef} className="relative" open={isOpen}>
-      <summary className="inline-flex list-none cursor-pointer items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700" onClick={() => {
+      <summary className="inline-flex list-none cursor-pointer items-center gap-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 [&::-webkit-details-marker]:hidden dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700" onClick={(event) => {
         event.preventDefault();
         setIsOpen((open) => !open)
       }}>

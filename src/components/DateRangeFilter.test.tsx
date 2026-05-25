@@ -99,7 +99,7 @@ describe('DateRangeFilter', () => {
   })
 
   it('disables days before "from" date in the To picker', () => {
-    const fromDate = new Date(2026, 3, 10) // 10 Apr 2026
+    const fromDate = new Date(2026, 4, 10) // 10 Apr 2026 
 
     render(
       <DateRangeFilter

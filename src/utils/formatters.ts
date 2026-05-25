@@ -26,3 +26,9 @@ export function formattedDate(date: Date) {
   const year = date.getFullYear()
   return `${day} ${month} ${year}`
 }
+
+export function parseISODate(str: string) {
+  // ISO format from API: "2026-04-10" — parse as local date to avoid UTC offset shift
+  const [year, month, day] = str.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
