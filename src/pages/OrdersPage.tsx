@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useDebounce } from '../hooks/useDebounce'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar, type FilterConfig } from '../components/FilterBar'
@@ -19,17 +20,10 @@ type FilterOptions = {
   customers: string[]
 }
 
-function getUniqueDeliveryDates(orders: Order[]): string[] {
-  const dates = new Set(orders.map((order) => order.deliveryDate))
-  return Array.from(dates).sort()
-}
-
-
 function getDefaultDateFilters() {
   return {
     orderDate: { from: undefined as Date | undefined, to: new Date() },
-    deliveryDate: { from: undefined as Date | undefined, to: new Date() },
-    paymentDate: { from: undefined as Date | undefined, to: new Date() },
+    deliveryDate: { from: undefined as Date | undefined, to: new Date() }
   }
 }
 
@@ -83,7 +77,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
   {
     key: 'actions',
-    customCell: <FontAwesomeIcon icon={faEllipsis} className="text-xl text-brand-500" />,
+    customCell: () => <FontAwesomeIcon icon={faEllipsis} className="text-xl text-brand-500" />,
     align: 'center'
   },
 ]
@@ -97,10 +91,16 @@ export function OrdersPage() {
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ salesReps: [], customers: [] })
 
-  const { orders, isLoading, error, totalPages } = useOrders({
-    searchTerm,
+  // Debounce search so network requests only fire once the user pauses
+  // typing, rather than on every keystroke.
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+  const { orders, isLoading, isFetching, error, totalPages } = useOrders({
+    searchTerm: debouncedSearchTerm,
     orderDateFrom: dateFilters.orderDate.from,
     orderDateTo: dateFilters.orderDate.to,
+    deliveryDateFrom: dateFilters.deliveryDate.from,
+    deliveryDateTo: dateFilters.deliveryDate.to,
     selectedStatus,
     additionalFilterValues,
     sort,
@@ -108,13 +108,22 @@ export function OrdersPage() {
   })
 
   useEffect(() => {
-    fetch('/api/v1/filter_options')
+    const controller = new AbortController()
+    fetch('/api/v1/filter_options', { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch filter options: ${res.status}`)
         return res.json() as Promise<{ sales_reps: string[]; customers: string[] }>
       })
       .then((json) => setFilterOptions({ salesReps: json.sales_reps, customers: json.customers }))
-      .catch((err: unknown) => console.error(err))
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // Ignore abort errors which are expected during cleanup
+          return
+        }
+        console.error(err)
+      })
+
+    return () => { controller.abort() }
   }, [])
 
 
@@ -125,6 +134,11 @@ export function OrdersPage() {
 
   const setDateFilter = useCallback((key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) => {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
+    setPage(1)
+  }, [])
+
+  const handleSortValue = useCallback((s: SortState<Order>) => {
+    setSort(s)
     setPage(1)
   }, [])
 
@@ -158,15 +172,12 @@ export function OrdersPage() {
       placeholderValue: 'Any',
     },
     {
-      type: 'dropdown',
+      type: 'dateRange',
       id: 'deliveryDate',
       label: 'Delivery Date',
-      options: () => getUniqueDeliveryDates(orders),
-      selectedValue: additionalFilterValues.deliveryDate,
-      onSelect: (value) => setAdditionalFilterValue('deliveryDate', value),
-      onClear: () => setAdditionalFilterValue('deliveryDate', undefined),
-      placeholderValue: 'Any',
-      additional: true,
+      value: dateFilters.deliveryDate,
+      onChange: (update) => setDateFilter('deliveryDate', update),
+      onClear: () => setDateFilter('deliveryDate', { from: undefined, to: new Date() }),
     },
     {
       type: 'dropdown',
@@ -190,7 +201,7 @@ export function OrdersPage() {
       placeholderValue: 'Any',
       additional: true,
     },
-  ], [filterOptions, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues, orders, setDateFilter, setAdditionalFilterValue])
+  ], [filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, additionalFilterValues, setDateFilter, setAdditionalFilterValue])
 
   return (
     <section className="space-y-5 w-full">
@@ -233,24 +244,29 @@ export function OrdersPage() {
               <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">Loading orders...</div>
             </div>
           ) : (
-            <GridTable<Order>
-              items={orders}
-              columns={orderTableColumns}
-              totalColumns={9}
-              getRowKey={(order) => order.id}
-              sort={sort}
-              onSortChange={(s) => { setSort(s); setPage(1) }}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              emptyState={(
-                <div className="border-t border-neutral-200 dark:border-neutral-700">
-                  <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
-                    No orders match your filters.
+            // Keep the table mounted while filters change — stale data stays
+            // visible (slightly dimmed) until the new results arrive, avoiding
+            // the flash caused by unmounting and remounting the table.
+            <div className={`transition-opacity duration-150 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
+              <GridTable<Order>
+                items={orders}
+                columns={orderTableColumns}
+                totalColumns={9}
+                getRowKey={(order) => order.id}
+                sort={sort}
+                onSortChange={handleSortValue}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                emptyState={(
+                  <div className="border-t border-neutral-200 dark:border-neutral-700">
+                    <div className="px-4 py-8 text-center text-neutral-600 dark:text-neutral-400">
+                      No orders match your filters.
+                    </div>
                   </div>
-                </div>
-              )}
-            />
+                )}
+              />
+            </div>
           )}
       </div>
     </section>

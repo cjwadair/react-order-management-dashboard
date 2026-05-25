@@ -43,6 +43,8 @@ type UseOrdersParams = {
   searchTerm: string
   orderDateFrom: Date | undefined
   orderDateTo: Date | undefined
+  deliveryDateFrom: Date | undefined
+  deliveryDateTo: Date | undefined
   selectedStatus: OrderStatus | undefined
   additionalFilterValues: AdditionalFilterValues
   sort: SortState<Order>
@@ -50,13 +52,17 @@ type UseOrdersParams = {
 }
 
 type FetchState = {
+  /** True only on the very first fetch when there is no data yet to show. */
   isLoading: boolean
+  /** True whenever any fetch is in-flight (including filter/search changes). */
+  isFetching: boolean
   error: string | null
 }
 
 type UseOrdersResult = {
   orders: Order[]
   isLoading: boolean
+  isFetching: boolean
   error: string | null
   totalPages: number
 }
@@ -78,15 +84,21 @@ export function useOrders({
   searchTerm,
   orderDateFrom,
   orderDateTo,
+  deliveryDateFrom,
+  deliveryDateTo, 
   selectedStatus,
   additionalFilterValues,
   sort,
   page,
 }: UseOrdersParams): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([])
-  const [fetchState, setFetchState] = useState<FetchState>({ isLoading: true, error: null })
+  const [fetchState, setFetchState] = useState<FetchState>({ isLoading: true, isFetching: true, error: null })
   const [totalPages, setTotalPages] = useState(1)
   const prevPageRef = useRef(0)
+  // Tracks whether we have ever successfully received data. Once true, filter
+  // changes show stale data (dimmed) rather than replacing the table with a
+  // full-page loading state.
+  const hasDataRef = useRef(false)
 
   useEffect(() => {
     const shouldAppend = page > 1 && page > prevPageRef.current
@@ -97,7 +109,8 @@ export function useOrders({
     if (selectedStatus) params.set('status', selectedStatus)
     if (orderDateFrom) params.set('order_date_from', orderDateFrom.toISOString().slice(0, 10))
     if (orderDateTo) params.set('order_date_to', orderDateTo.toISOString().slice(0, 10))
-    if (additionalFilterValues.deliveryDate) params.set('delivery_date', additionalFilterValues.deliveryDate)
+    if (deliveryDateFrom) params.set('delivery_date_from', deliveryDateFrom.toISOString().slice(0, 10))
+    if (deliveryDateTo) params.set('delivery_date_to', deliveryDateTo.toISOString().slice(0, 10))
     if (additionalFilterValues.salesRep) params.set('sales_rep', additionalFilterValues.salesRep)
     if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
     params.set('sort_by', sort.field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`))
@@ -106,26 +119,38 @@ export function useOrders({
 
     const query = params.size > 0 ? `?${params}` : ''
 
-    // Single setState call — avoids cascading renders from two synchronous updates.
-    // Only show the loading spinner for fresh fetches, not silent infinite-scroll appends.
-    setFetchState({ isLoading: !shouldAppend, error: null })
+    // isLoading — only true on the very first fetch (no rows to show yet).
+    // isFetching — true for every in-flight request, including filter changes.
+    // Infinite-scroll appends are silent (neither flag is raised).
+    setFetchState({
+      isLoading: !hasDataRef.current && !shouldAppend,
+      isFetching: !shouldAppend,
+      error: null,
+    })
 
-    fetch(`/api/v1/sales_orders${query}`)
+    const controller = new AbortController()
+
+    fetch(`/api/v1/sales_orders${query}`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch orders: ${res.status}`)
         return res.json() as Promise<{ data: SalesOrderResponse[]; meta: SalesOrderMeta }>
       })
       .then((json) => {
+        hasDataRef.current = true
         setOrders((prev) => shouldAppend ? [...prev, ...json.data.map(mapOrder)] : json.data.map(mapOrder))
         setTotalPages(json.meta.total_pages)
-        setFetchState({ isLoading: false, error: null })
+        setFetchState({ isLoading: false, isFetching: false, error: null })
       })
       .catch((err: unknown) => {
-        setFetchState({ isLoading: false, error: err instanceof Error ? err.message : 'Failed to load orders' })
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // Ignore abort errors which are expected during cleanup
+          return
+        }
+        setFetchState({ isLoading: false, isFetching: false, error: err instanceof Error ? err.message : 'Failed to load orders' })
       })
 
-    return () => { prevPageRef.current = 0 }
-  }, [searchTerm, orderDateFrom, orderDateTo, selectedStatus, additionalFilterValues, sort, page])
+    return () => { controller.abort(); prevPageRef.current = 0 }
+  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, additionalFilterValues, sort, page])
 
-  return { orders, isLoading: fetchState.isLoading, error: fetchState.error, totalPages }
+  return { orders, isLoading: fetchState.isLoading, isFetching: fetchState.isFetching, error: fetchState.error, totalPages }
 }
