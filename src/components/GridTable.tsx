@@ -1,4 +1,5 @@
 import { createContext, useContext, useRef, type ReactNode } from 'react'
+import { validateColumnSpans } from './gridTableUtils'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons'
 
@@ -81,11 +82,6 @@ export type GridTableCellProps = {
   children: ReactNode
 }
 
-type SpanValidationResult = {
-  valid: boolean
-  spanTotal: number
-}
-
 const gridColumnsClassNames: Record<number, string> = {
   1: 'grid-cols-1',
   2: 'grid-cols-2',
@@ -147,7 +143,7 @@ type GridTableContextValue<TItem> = {
   onPageChange?: (page: number) => void
 }
 
-const GridTableContext = createContext<GridTableContextValue<any> | null>(null)
+const GridTableContext = createContext<GridTableContextValue<unknown> | null>(null)
 
 function joinClassNames(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(' ')
@@ -170,19 +166,6 @@ function getColumnHeader<TItem>(column: GridColumn<TItem>): ReactNode {
   const fieldName = column.field ?? column.key
   if (!fieldName) return ''
   return formatFieldName(fieldName)
-}
-
-export function getSpanTotal<TItem = unknown>(columns: readonly GridColumn<TItem>[]) {
-  return columns.reduce((sum, column) => sum + getColumnSpan(column), 0)
-}
-
-export function validateColumnSpans<TItem = unknown>(columns: readonly GridColumn<TItem>[], totalColumns: number): SpanValidationResult {
-  const spanTotal = getSpanTotal(columns)
-
-  return {
-    valid: spanTotal === totalColumns,
-    spanTotal,
-  }
 }
 
 function getGridColumnsClassName(totalColumns: number) {
@@ -237,7 +220,7 @@ function getRequiredColumnSpanClassName<TItem = unknown>(column: GridColumn<TIte
 }
 
 
-function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridTableHeaderProps<TItem>) {
+export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridTableHeaderProps<TItem>) {
   const { totalColumns, columns, defaultHeaderCellClassName, sort, setSort } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
 
@@ -304,7 +287,7 @@ function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridT
   )
 }
 
-function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TItem>) {
+export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TItem>) {
   const { items, columns, totalColumns, getRowKey, defaultCellClassName, page, totalPages, setPage } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
   const nearBottomFired = useRef(false)
@@ -372,7 +355,7 @@ function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TIte
    )
 }
 
-function GridTableRow({ className, children }: GridTableRowProps) {
+export function GridTableRow({ className, children }: GridTableRowProps) {
   const { totalColumns } = useGridTableContext<unknown>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
 
@@ -383,7 +366,7 @@ function GridTableRow({ className, children }: GridTableRowProps) {
   )
 }
 
-function GridTableCell({ columnKey, className, children }: GridTableCellProps) {
+export function GridTableCell({ columnKey, className, children }: GridTableCellProps) {
   const { columns, defaultCellClassName } = useGridTableContext<unknown>()
   const column = columns.find((currentColumn) => getColumnKey(currentColumn) === columnKey)
 
@@ -400,7 +383,7 @@ function GridTableCell({ columnKey, className, children }: GridTableCellProps) {
   )
 }
 
-function GridTableRoot<TItem>({
+export function GridTableRoot<TItem>({
   items,
   columns,
   sort,
@@ -441,7 +424,7 @@ function GridTableRoot<TItem>({
 
 
   return (
-    <GridTableContext.Provider value={{ items, columns: columns as readonly GridColumn<any>[], totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange, page, totalPages, setPage: onPageChange }}
+    <GridTableContext.Provider value={{ items, columns, totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange, page, totalPages, setPage: onPageChange } as unknown as GridTableContextValue<unknown>}
     >
       <div
         className={joinClassNames(
@@ -473,9 +456,11 @@ type GridTableComponent = typeof GridTableRoot & {
   Cell: typeof GridTableCell
 }
 
-export const GridTable = Object.assign(GridTableRoot, {
+Object.assign(GridTableRoot, {
   Header: GridTableHeader,
   Rows: GridTableRows,
   Row: GridTableRow,
   Cell: GridTableCell,
-}) as GridTableComponent
+})
+
+export const GridTable = GridTableRoot as GridTableComponent

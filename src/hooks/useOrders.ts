@@ -49,6 +49,11 @@ type UseOrdersParams = {
   page: number
 }
 
+type FetchState = {
+  isLoading: boolean
+  error: string | null
+}
+
 type UseOrdersResult = {
   orders: Order[]
   isLoading: boolean
@@ -79,8 +84,7 @@ export function useOrders({
   page,
 }: UseOrdersParams): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [fetchState, setFetchState] = useState<FetchState>({ isLoading: true, error: null })
   const [totalPages, setTotalPages] = useState(1)
   const prevPageRef = useRef(0)
 
@@ -102,9 +106,9 @@ export function useOrders({
 
     const query = params.size > 0 ? `?${params}` : ''
 
-    // Only show the loading state for fresh fetches, not silent infinite-scroll appends
-    if (!shouldAppend) setIsLoading(true)
-    setError(null)
+    // Single setState call — avoids cascading renders from two synchronous updates.
+    // Only show the loading spinner for fresh fetches, not silent infinite-scroll appends.
+    setFetchState({ isLoading: !shouldAppend, error: null })
 
     fetch(`/api/v1/sales_orders${query}`)
       .then((res) => {
@@ -114,12 +118,14 @@ export function useOrders({
       .then((json) => {
         setOrders((prev) => shouldAppend ? [...prev, ...json.data.map(mapOrder)] : json.data.map(mapOrder))
         setTotalPages(json.meta.total_pages)
+        setFetchState({ isLoading: false, error: null })
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load orders'))
-      .finally(() => setIsLoading(false))
+      .catch((err: unknown) => {
+        setFetchState({ isLoading: false, error: err instanceof Error ? err.message : 'Failed to load orders' })
+      })
 
     return () => { prevPageRef.current = 0 }
   }, [searchTerm, orderDateFrom, orderDateTo, selectedStatus, additionalFilterValues, sort, page])
 
-  return { orders, isLoading, error, totalPages }
+  return { orders, isLoading: fetchState.isLoading, error: fetchState.error, totalPages }
 }

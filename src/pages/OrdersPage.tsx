@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar, type FilterConfig } from '../components/FilterBar'
@@ -118,17 +118,18 @@ export function OrdersPage() {
   }, [])
 
 
-  function setAdditionalFilterValue(filterId: AdditionalFilterId, value: string | undefined) {
+  const setAdditionalFilterValue = useCallback((filterId: AdditionalFilterId, value: string | undefined) => {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
     setPage(1)
-  }
+  }, [])
 
-  function setDateFilter(key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) {
+  const setDateFilter = useCallback((key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) => {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
     setPage(1)
-  }
+  }, [])
 
   const filters = useMemo<FilterConfig[]>(() => [
+
     {
       type: 'search',
       id: 'search',
@@ -189,7 +190,7 @@ export function OrdersPage() {
       placeholderValue: 'Any',
       additional: true,
     },
-  ], [filterOptions, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues, orders])
+  ], [filterOptions, searchTerm, dateFilters.orderDate, selectedStatus, additionalFilterValues, orders, setDateFilter, setAdditionalFilterValue])
 
   return (
     <section className="space-y-5 w-full">
