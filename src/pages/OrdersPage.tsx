@@ -244,9 +244,6 @@ export function OrdersPage() {
               <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">Loading orders...</div>
             </div>
           ) : (
-            // Keep the table mounted while filters change — stale data stays
-            // visible (slightly dimmed) until the new results arrive, avoiding
-            // the flash caused by unmounting and remounting the table.
             <div className={`transition-opacity duration-150 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
               <GridTable<Order>
                 items={orders}

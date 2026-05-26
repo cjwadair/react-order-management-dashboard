@@ -7,6 +7,8 @@ const defaultParams = {
   searchTerm: '',
   orderDateFrom: undefined,
   orderDateTo: undefined,
+  deliveryDateFrom: undefined,
+  deliveryDateTo: undefined,
   selectedStatus: undefined,
   additionalFilterValues: {},
   sort: { field: 'orderDate' as const, order: 'desc' as const },
@@ -98,6 +100,9 @@ describe('useOrders', () => {
     const { result } = renderHook(() => useOrders({ ...defaultParams, searchTerm: 'Acme' }))
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('search=Acme'))
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('search=Acme'),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
   })
 })

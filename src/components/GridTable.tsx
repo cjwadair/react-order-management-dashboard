@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react'
 import { validateColumnSpans } from './gridTableUtils'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons'
@@ -41,8 +41,8 @@ export type GridColumn<TItem = unknown> = GridColumnWithField<TItem> | GridColum
 export type GridTableProps<TItem> = {
   items: readonly TItem[]
   columns: readonly GridColumn<TItem>[]
-  sort: SortState<TItem>
-  onSortChange: (sort: SortState<TItem>) => void
+  sort?: SortState<TItem>
+  onSortChange?: (sort: SortState<TItem>) => void
   totalColumns: number
   getRowKey: (item: TItem, index: number) => string
   children?: ReactNode
@@ -131,16 +131,16 @@ const defaultEmptyStateMessageClassName = 'px-4 py-8 text-center text-neutral-50
 type GridTableContextValue<TItem> = {
   items: readonly TItem[]
   columns: readonly GridColumn<TItem>[]
+  columnMap: Map<string, GridColumn<TItem>>
   totalColumns: number
   getRowKey: (item: TItem, index: number) => string
   defaultHeaderCellClassName?: string
   defaultCellClassName?: string
-  sort: SortState<TItem> | null
-  setSort: (sort: SortState<TItem>) => void
+  sort?: SortState<TItem> | null
+  setSort?: (sort: SortState<TItem>) => void
   page?: number
   totalPages?: number
   setPage?: (page: number) => void
-  onPageChange?: (page: number) => void
 }
 
 const GridTableContext = createContext<GridTableContextValue<unknown> | null>(null)
@@ -220,25 +220,58 @@ function getRequiredColumnSpanClassName<TItem = unknown>(column: GridColumn<TIte
 }
 
 
+type HeaderCellContentProps<TItem> = {
+  column: GridColumn<TItem>
+  columnIndex: number
+  sort: SortState<TItem> | null
+  isSortable: boolean
+  isActive: boolean
+  renderHeaderCell?: (column: GridColumn<TItem>, columnIndex: number) => ReactNode
+}
+
+function HeaderCellContent<TItem>({ column, columnIndex, sort, isSortable, isActive, renderHeaderCell }: HeaderCellContentProps<TItem>) {
+  if (typeof column.customHeader === 'function') {
+    return column.customHeader(column, columnIndex)
+  }
+
+  if (column.customHeader !== undefined) {
+    return column.customHeader
+  }
+
+  const headerOverride = renderHeaderCell?.(column, columnIndex)
+  if (headerOverride !== undefined) return headerOverride
+
+  const hoverOrder = (column as GridColumnWithField<TItem>).initialSortOrder ?? 'asc'
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {getColumnHeader(column)}
+      {isActive
+        ? <FontAwesomeIcon icon={sort!.order === 'asc' ? faArrowUp : faArrowDown} className="text-xs" aria-hidden />
+        : isSortable && <FontAwesomeIcon icon={hoverOrder === 'asc' ? faArrowUp : faArrowDown} className="text-xs opacity-0 group-hover:opacity-40 transition-opacity" aria-hidden />
+      }
+    </span>
+  )
+}
+
 export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }: GridTableHeaderProps<TItem>) {
   const { totalColumns, columns, defaultHeaderCellClassName, sort, setSort } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
-
-  function handleHeaderClick(column: GridColumn<TItem>) {
-    if (!column.field) return
+  
+  const handleHeaderClick = useCallback((column: GridColumn<TItem>) => {
+    if (!setSort || !column.field) return
     if (sort && sort.field === column.field) {
       setSort({ field: column.field, order: sort.order === 'asc' ? 'desc' : 'asc' })
     } else {
       setSort({ field: column.field, order: (column as GridColumnWithField<TItem>).initialSortOrder ?? 'asc' })
     }
-  }
+  }, [sort, setSort])
 
   return (
     <div className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}>
       {columns.map((column, columnIndex) => {
         const spanClassName = getRequiredColumnSpanClassName(column)
         const columnKey = getColumnKey(column)
-        const isSortable = !!column.field
+        const isSortable = !!column.field && !!setSort
         const isActive = isSortable && sort?.field === column.field
 
         return (
@@ -257,29 +290,14 @@ export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }
             onKeyDown={isSortable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleHeaderClick(column) } : undefined}
             aria-sort={isActive ? (sort!.order === 'asc' ? 'ascending' : 'descending') : undefined}
           >
-            {(() => {
-              if (typeof column.customHeader === 'function') {
-                return column.customHeader(column, columnIndex)
-              }
-
-              if (column.customHeader !== undefined) {
-                return column.customHeader
-              }
-
-              const headerOverride = renderHeaderCell?.(column, columnIndex)
-              if (headerOverride !== undefined) return headerOverride
-
-              const hoverOrder = (column as GridColumnWithField<TItem>).initialSortOrder ?? 'asc'
-              return (
-                <span className="inline-flex items-center gap-1.5">
-                  {getColumnHeader(column)}
-                  {isActive
-                    ? <FontAwesomeIcon icon={sort!.order === 'asc' ? faArrowUp : faArrowDown} className="text-xs" aria-hidden />
-                    : isSortable && <FontAwesomeIcon icon={hoverOrder === 'asc' ? faArrowUp : faArrowDown} className="text-xs opacity-0 group-hover:opacity-40 transition-opacity" aria-hidden />
-                  }
-                </span>
-              )
-            })()}
+            <HeaderCellContent
+              column={column}
+              columnIndex={columnIndex}
+              sort={sort ?? null}
+              isSortable={isSortable}
+              isActive={isActive}
+              renderHeaderCell={renderHeaderCell}
+            />
           </div>
         )
       })}
@@ -287,13 +305,43 @@ export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }
   )
 }
 
+type RowCellContentProps<TItem> = {
+  column: GridColumn<TItem>
+  item: TItem
+  index: number
+  renderCell?: (column: GridColumn<TItem>, item: TItem, index: number) => ReactNode
+}
+
+function RowCellContent<TItem>({ column, item, index, renderCell }: RowCellContentProps<TItem>) {
+  if (typeof column.customCell === 'function') {
+    return column.customCell(item, column, index)
+  }
+
+  if (column.customCell !== undefined) {
+    return column.customCell
+  }
+
+  const custom = renderCell?.(column, item, index)
+
+  if (custom !== undefined) return custom
+
+  const itemRecord = item as Record<string, unknown>
+  if (column.field && column.field in itemRecord) {
+    const value = itemRecord[column.field]
+    const formatter = (column as GridColumnWithField<TItem>).valueFormatter
+    return formatter ? formatter(value, item) : String(value ?? '')
+  }
+
+  return null
+}
+
 export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TItem>) {
   const { items, columns, totalColumns, getRowKey, defaultCellClassName, page, totalPages, setPage } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
   const nearBottomFired = useRef(false)
-
-  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
-    if (!setPage || !page) return
+  
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (!setPage || page === undefined) return
     if (totalPages !== undefined && page >= totalPages) return
     const el = e.currentTarget
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 100
@@ -303,7 +351,7 @@ export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsPro
     } else if (!near) {
       nearBottomFired.current = false
     }
-  }
+  }, [page, totalPages, setPage])
 
   return (
     <div
@@ -324,28 +372,7 @@ export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsPro
                 key={columnKey}
                 className={joinClassNames(spanClassName, getAlignmentClassName(column.align), defaultCellClassName, column.cellClassName)}
               >
-                {(() => {
-                  if (typeof column.customCell === 'function') {
-                    return column.customCell(item, column, index)
-                  }
-
-                  if (column.customCell !== undefined) {
-                    return column.customCell
-                  }
-
-                  const custom = renderCell?.(column, item, index)
-
-                  if (custom !== undefined) return custom
-
-                  const itemRecord = item as Record<string, unknown>
-                  if (column.field && column.field in itemRecord) {
-                    const value = itemRecord[column.field]
-                    const formatter = (column as GridColumnWithField<TItem>).valueFormatter
-                    return formatter ? formatter(value, item) : String(value ?? '')
-                  }
-
-                  return null
-                })()}
+                <RowCellContent column={column} item={item} index={index} renderCell={renderCell} />
               </div>
             )
           })}
@@ -367,8 +394,8 @@ export function GridTableRow({ className, children }: GridTableRowProps) {
 }
 
 export function GridTableCell({ columnKey, className, children }: GridTableCellProps) {
-  const { columns, defaultCellClassName } = useGridTableContext<unknown>()
-  const column = columns.find((currentColumn) => getColumnKey(currentColumn) === columnKey)
+  const { columnMap, defaultCellClassName } = useGridTableContext<unknown>()
+  const column = columnMap.get(columnKey)
 
   if (!column) {
     throw new Error(`Unknown column key: ${columnKey}.`)
@@ -404,14 +431,17 @@ export function GridTableRoot<TItem>({
   page,
   totalPages,
   onPageChange,
-}: GridTableProps<TItem>) {
-  if (validateSpans) {
-    const { valid, spanTotal } = validateColumnSpans(columns, totalColumns)
+}: GridTableProps<TItem>) { 
 
-    if (!valid) {
-      throw new Error(`Column spans must total ${totalColumns}, received ${spanTotal}.`)
-    }
+  if (validateSpans && process.env.NODE_ENV !== 'production') {
+    const { valid, spanTotal } = validateColumnSpans(columns, totalColumns)
+    if (!valid) throw new Error(`Column spans must total ${totalColumns}, received ${spanTotal}.`)
   }
+
+  const columnMap = useMemo(
+    () => new Map(columns.map((col) => [getColumnKey(col), col])),
+    [columns]
+  )
 
   const resolvedEmptyState = emptyState ?? (
     <div className={defaultEmptyStateClassName}>
@@ -421,10 +451,10 @@ export function GridTableRoot<TItem>({
     </div>
   )
 
-
-
   return (
-    <GridTableContext.Provider value={{ items, columns, totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange, page, totalPages, setPage: onPageChange } as unknown as GridTableContextValue<unknown>}
+    // React context cannot carry a generic type parameter directly.
+    // TItem is re-applied by the typed useGridTableContext<TItem>() hook at each call site.
+    <GridTableContext.Provider value={{ items, columns, columnMap, totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange, page, totalPages, setPage: onPageChange } as unknown as GridTableContextValue<unknown>}
     >
       <div
         className={joinClassNames(
