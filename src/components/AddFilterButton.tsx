@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronDown, faPlus } from '@fortawesome/free-solid-svg-icons'
+import { useClickOutside } from '../hooks/useClickOutside'
 
 type AddFilterOption<T extends string> = {
   id: T
@@ -37,61 +38,49 @@ export function AddFilterButton<T extends string>({
   optionClassName,
   triggerLabel = 'Filter',
 }: AddFilterButtonProps<T>) {
-  const detailsRef = useRef<HTMLDetailsElement>(null)
+  const detailsRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
 
   const availableFilters = filters.filter((filter) => !activeFilterIds.has(filter.id))
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!detailsRef.current?.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-    }
-  }, [isOpen])
+  useClickOutside(detailsRef, () => setIsOpen(false), isOpen)
 
   function close() {
     setIsOpen(false)
   }
 
   return (
-    <details className={className ?? 'relative'} open={isOpen} ref={detailsRef}>
-      <summary
+    <div className={className ?? 'relative'} ref={detailsRef}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         className={triggerClassName ?? defaultTriggerClassName}
-        onClick={(event) => {
-          event.preventDefault()
-          setIsOpen((prev) => !prev)
-        }}
+        onClick={() => { setIsOpen((prev) => !prev)}}
       >
         <FontAwesomeIcon icon={faPlus} className="font-medium text-neutral-700" />
         <span className="ml-1">{triggerLabel}</span>
         <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
-      </summary>
-      <div className={menuClassName ?? defaultMenuClassName}>
-        {availableFilters.map((filter) => (
-          <button
-            key={filter.id}
-            type="button"
-            onClick={() => {
-              onActivateFilter(filter.id)
-              close()
-            }}
-            className={optionClassName ?? defaultOptionClassName}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-    </details>
+      </button>
+      {isOpen && (
+        <div role="listbox" className={menuClassName ?? defaultMenuClassName}>
+          {availableFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              role="option"
+              aria-selected={activeFilterIds.has(filter.id)}
+              onClick={() => {
+                onActivateFilter(filter.id)
+                close()
+              }}
+              className={optionClassName ?? defaultOptionClassName}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

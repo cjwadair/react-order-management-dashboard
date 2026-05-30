@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
 import { capitalizeWords, pluralizeWord } from '../utils/formatters'
+import { useClickOutside } from '../hooks/useClickOutside'
 
 type PlaceholderValue = 'Any' | 'All'
 
@@ -55,26 +56,10 @@ export function DropdownFilter<T>({
   menuClassName,
   optionClassName,
 }: DropdownFilterProps<T>) {
-  const detailsRef = useRef<HTMLDetailsElement>(null)
+  const detailsRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!detailsRef.current?.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-    }
-  }, [isOpen])
+  useClickOutside(detailsRef, () => setIsOpen(false), isOpen)
 
   function close() {
     setIsOpen(false)
@@ -87,38 +72,39 @@ export function DropdownFilter<T>({
 
   return (
     <div className="flex items-center text-neutral-700 rounded-md gap-2">
-      <details className={className ?? 'relative'} ref={detailsRef} open={isOpen}>
-        <summary
+      <div className={className ?? 'relative'} ref={detailsRef}>
+        <button 
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
           className={triggerClassName ?? defaultTriggerClassName}
-          onClick={(event) => {
-            event.preventDefault()
-            setIsOpen((prev) => !prev)
-          }}
+          onClick={() => { setIsOpen((prev) => !prev) }}
         >
-          <span>{triggerLabel}</span>
+          {triggerLabel}
           <FontAwesomeIcon icon={faAngleDown} className="ml-2 text-neutral-700" />
-        </summary>
-
-        <div className={menuClassName ?? defaultMenuClassName}>
-          <button
-            type="button"
-            onClick={() => { onSelect(undefined); close() }}
-            className={optionClassName ?? defaultOptionClassName}
+        </button>
+        { isOpen && (
+          <div className={menuClassName ?? defaultMenuClassName}>
+            <button
+              type="button"
+              onClick={() => { onSelect(undefined); close() }}
+              className={optionClassName ?? defaultOptionClassName}
           >
             {resolvedClearLabel}
-          </button>
-          {options.map((option) => (
-            <button
-              key={getOptionKey(option)}
-              type="button"
-              onClick={() => { onSelect(option); close() }}
-              className={optionClassName ?? defaultOptionClassName}
-            >
-              {capitalizeWords(getOptionLabel(option))}
             </button>
-          ))}
-        </div>
-      </details>
+            {options.map((option) => (
+              <button
+                key={getOptionKey(option)}
+                type="button"
+                onClick={() => { onSelect(option); close() }}
+                className={optionClassName ?? defaultOptionClassName}
+              >
+                {capitalizeWords(getOptionLabel(option))}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

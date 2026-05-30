@@ -1,24 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useDebounce } from '../hooks/useDebounce'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
-import { FilterBar, type FilterConfig } from '../components/FilterBar'
+import { FilterBar } from '../components/FilterBar'
 import { GridTable, type GridColumn, type SortState } from '../components/GridTable'
 import { capitalizeWords, formattedDate, parseISODate } from '../utils/formatters'
 import {
   useOrders,
-  orderStatuses,
   type Order,
   type OrderStatus,
   type AdditionalFilterId,
   type AdditionalFilterValues,
 } from '../hooks/useOrders'
 import { PageHeader } from '../components/PageHeader'
-
-type FilterOptions = {
-  salesReps: string[]
-  customers: string[]
-}
+import { useFilterOptions } from '../hooks/useFilterOptions'
+import { useOrderFilters } from '../hooks/useOrderFilters'
 
 function getDefaultDateFilters() {
   return {
@@ -70,7 +66,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
     customCell: (order) => {
       return (
         <div className="flex justify-center">
-          <span className="w-full px-2 py-1 text-sm font-medium bg-green-500/15 text-green-800 rounded-full">{capitalizeWords(order.orderStatus)}</span>
+          <span className={`w-full px-2 py-1 text-sm font-medium rounded-full ${statusColors[order.orderStatus]}`}>{capitalizeWords(order.orderStatus)}</span>
         </div>
       )
     },
@@ -82,6 +78,15 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
   },
 ]
 
+const statusColors: Record<OrderStatus, string> = {
+  pending:    'bg-yellow-500/15 text-yellow-800',
+  approved:   'bg-blue-500/15 text-blue-800',
+  processing: 'bg-blue-500/15 text-blue-800',
+  shipped:    'bg-purple-500/15 text-purple-800',
+  delivered:  'bg-green-500/15 text-green-800',
+  completed:  'bg-green-500/15 text-green-800',
+}
+
 export function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilters, setDateFilters] = useState(getDefaultDateFilters)
@@ -89,12 +94,11 @@ export function OrdersPage() {
   const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
   const [page, setPage] = useState(1)
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ salesReps: [], customers: [] })
-
+  
   // Debounce search so network requests only fire once the user pauses
   // typing, rather than on every keystroke.
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
-
+  
   const { orders, isLoading, isFetching, error, totalPages } = useOrders({
     searchTerm: debouncedSearchTerm,
     orderDateFrom: dateFilters.orderDate.from,
@@ -106,26 +110,8 @@ export function OrdersPage() {
     sort,
     page,
   })
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/v1/filter_options', { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to fetch filter options: ${res.status}`)
-        return res.json() as Promise<{ sales_reps: string[]; customers: string[] }>
-      })
-      .then((json) => setFilterOptions({ salesReps: json.sales_reps, customers: json.customers }))
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          // Ignore abort errors which are expected during cleanup
-          return
-        }
-        console.error(err)
-      })
-
-    return () => { controller.abort() }
-  }, [])
-
+  
+  const filterOptions = useFilterOptions()
 
   const setAdditionalFilterValue = useCallback((filterId: AdditionalFilterId, value: string | undefined) => {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
@@ -142,76 +128,22 @@ export function OrdersPage() {
     setPage(1)
   }, [])
 
-  const filters = useMemo<FilterConfig[]>(() => [
-
-    {
-      type: 'search',
-      id: 'search',
-      value: searchTerm,
-      onChange: (v) => { setSearchTerm(v); setPage(1) },
-      onClear: () => { setSearchTerm(''); setPage(1) },
-      placeholder: 'Search orders...',
-      ariaLabel: 'Search orders',
-    },
-    {
-      type: 'dateRange',
-      id: 'orderDate',
-      label: 'Order Date',
-      value: dateFilters.orderDate,
-      onChange: (update) => setDateFilter('orderDate', update),
-      onClear: () => setDateFilter('orderDate', { from: undefined, to: new Date() }),
-    },
-    {
-      type: 'dropdown',
-      id: 'status',
-      label: 'Order Status',
-      options: orderStatuses,
-      selectedValue: selectedStatus,
-      onSelect: (value) => { setSelectedStatus(value as OrderStatus | undefined); setPage(1) },
-      onClear: () => { setSelectedStatus(undefined); setPage(1) },
-      placeholderValue: 'Any',
-    },
-    {
-      type: 'dateRange',
-      id: 'deliveryDate',
-      label: 'Delivery Date',
-      value: dateFilters.deliveryDate,
-      onChange: (update) => setDateFilter('deliveryDate', update),
-      onClear: () => setDateFilter('deliveryDate', { from: undefined, to: new Date() }),
-    },
-    {
-      type: 'dropdown',
-      id: 'salesRep',
-      label: 'Sales Rep',
-      options: filterOptions.salesReps,
-      selectedValue: additionalFilterValues.salesRep,
-      onSelect: (value) => setAdditionalFilterValue('salesRep', value),
-      onClear: () => setAdditionalFilterValue('salesRep', undefined),
-      placeholderValue: 'Any',
-      additional: true,
-    },
-    {
-      type: 'dropdown',
-      id: 'customer',
-      label: 'Customer',
-      options: filterOptions.customers,
-      selectedValue: additionalFilterValues.customer,
-      onSelect: (value) => setAdditionalFilterValue('customer', value),
-      onClear: () => setAdditionalFilterValue('customer', undefined),
-      placeholderValue: 'Any',
-      additional: true,
-    },
-  ], [filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, additionalFilterValues, setDateFilter, setAdditionalFilterValue])
+  const filters = useOrderFilters({
+    searchTerm,
+    setSearchTerm,
+    dateFilters,
+    setDateFilter,
+    selectedStatus,
+    setSelectedStatus,
+    additionalFilterValues,
+    setAdditionalFilterValue,
+    filterOptions,
+    setPage,
+  })
 
   return (
-    <section className="space-y-5 w-full">
-      <PageHeader title="Sales Orders" />
-
-      <div className="flex justify-between mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 mt-8 mb-4">
-        <FilterBar
-          filters={filters}
-        />
-
+    <section className="flex flex-col gap-5 h-dvh max-h-screen w-full">
+      <PageHeader title="Sales Orders">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -232,9 +164,13 @@ export function OrdersPage() {
             <FontAwesomeIcon icon={faPrint} className="text-lg text-accent-800" />
           </button>
         </div>
-      </div>
+      </PageHeader>
+
+      <FilterBar
+        filters={filters}
+      />
       
-      <div className="max-h-screen h-screen">
+      <div className="flex-1 min-h-0 mt-1 mb-4">
           {error ? (
             <div className="border-t border-neutral-200 dark:border-neutral-700">
               <div className="px-4 py-8 text-center text-red-600 dark:text-red-400">{error}</div>
@@ -244,7 +180,7 @@ export function OrdersPage() {
               <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">Loading orders...</div>
             </div>
           ) : (
-            <div className={`transition-opacity duration-150 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
+            <div className={`h-full transition-opacity duration-150 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
               <GridTable<Order>
                 items={orders}
                 columns={orderTableColumns}

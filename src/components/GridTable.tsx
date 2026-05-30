@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { validateColumnSpans } from './gridTableUtils'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons'
+import { clsx } from 'clsx'
 
 type ColumnAlign = 'left' | 'center' | 'right'
 
@@ -118,8 +119,8 @@ const alignmentClassNames: Record<ColumnAlign, string> = {
   right: 'text-right',
 }
 
-const defaultContainerClassName = 'overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
-const defaultBodyClassName = 'max-h-full flex flex-col w-full text-left text-sm'
+const defaultContainerClassName = 'h-full overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
+const defaultBodyClassName = 'h-full flex flex-col w-full text-left text-sm'
 const defaultRowLayoutClassName = 'grid gap-2 justify-stretch items-center w-full'
 const defaultHeaderClassName = 'h-14 bg-accent-100 border border-accent-200 text-accent-800 dark:bg-neutral-800 dark:text-neutral-300 align-bottom'
 const headerCellClassName = 'px-4 font-medium'
@@ -146,7 +147,7 @@ type GridTableContextValue<TItem> = {
 const GridTableContext = createContext<GridTableContextValue<unknown> | null>(null)
 
 function joinClassNames(...classNames: Array<string | undefined>) {
-  return classNames.filter(Boolean).join(' ')
+  return clsx(...classNames)
 }
 
 function formatFieldName(fieldName: string): string {
@@ -267,7 +268,7 @@ export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }
   }, [sort, setSort])
 
   return (
-    <div className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}>
+    <div className={clsx(defaultRowLayoutClassName, totalColumnsClassName, className)}>
       {columns.map((column, columnIndex) => {
         const spanClassName = getRequiredColumnSpanClassName(column)
         const columnKey = getColumnKey(column)
@@ -277,7 +278,7 @@ export function GridTableHeader<TItem = unknown>({ className, renderHeaderCell }
         return (
           <div
             key={columnKey}
-            className={joinClassNames(
+            className={clsx(
               spanClassName,
               getAlignmentClassName(column.align),
               defaultHeaderCellClassName,
@@ -338,30 +339,38 @@ function RowCellContent<TItem>({ column, item, index, renderCell }: RowCellConte
 export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsProps<TItem>) {
   const { items, columns, totalColumns, getRowKey, defaultCellClassName, page, totalPages, setPage } = useGridTableContext<TItem>()
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
-  const nearBottomFired = useRef(false)
-  
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (!setPage || page === undefined) return
-    if (totalPages !== undefined && page >= totalPages) return
-    const el = e.currentTarget
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 100
-    if (near && !nearBottomFired.current) {
-      nearBottomFired.current = true
-      setPage(page + 1)
-    } else if (!near) {
-      nearBottomFired.current = false
-    }
-  }, [page, totalPages, setPage])
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  const pageRef = useRef(page)
+  pageRef.current = page
+  const totalPagesRef = useRef(totalPages)
+  totalPagesRef.current = totalPages
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !setPage || page === undefined) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        const current = pageRef.current ?? 1
+        if(current < (totalPagesRef.current ?? 1)) {
+          observer.disconnect() // Prevent multiple triggers while loading
+          setPage(current + 1)
+        }
+      }
+    }, { threshold: 0.1 })
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [items, setPage])
 
   return (
-    <div
-      className="h-[calc(100vh-220px)] overflow-y-auto"
-      onScroll={handleScroll}
-    >
+    <div className="flex-1 min-h-0 overflow-y-auto">
       {items.map((item, index) => (
         <div
           key={getRowKey(item, index)}
-          className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}
+          className={clsx(defaultRowLayoutClassName, totalColumnsClassName, className)}
         >
           {columns.map((column) => {
             const spanClassName = getRequiredColumnSpanClassName(column)
@@ -370,7 +379,7 @@ export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsPro
             return (
               <div
                 key={columnKey}
-                className={joinClassNames(spanClassName, getAlignmentClassName(column.align), defaultCellClassName, column.cellClassName)}
+                className={clsx(spanClassName, getAlignmentClassName(column.align), defaultCellClassName, column.cellClassName)}
               >
                 <RowCellContent column={column} item={item} index={index} renderCell={renderCell} />
               </div>
@@ -378,6 +387,7 @@ export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsPro
           })}
         </div>  
       ))}
+      <div ref={sentinelRef} className="h-1" />
     </div>
    )
 }
@@ -387,7 +397,7 @@ export function GridTableRow({ className, children }: GridTableRowProps) {
   const totalColumnsClassName = getRequiredGridColumnsClassName(totalColumns)
 
   return (
-    <div className={joinClassNames(defaultRowLayoutClassName, totalColumnsClassName, className)}>
+    <div className={clsx(defaultRowLayoutClassName, totalColumnsClassName, className)}>
       {children}
     </div>
   )
@@ -404,7 +414,7 @@ export function GridTableCell({ columnKey, className, children }: GridTableCellP
   const spanClassName = getRequiredColumnSpanClassName(column)
 
   return (
-    <div className={joinClassNames(spanClassName, getAlignmentClassName(column.align), defaultCellClassName, column.cellClassName, className)}>
+    <div className={clsx(spanClassName, getAlignmentClassName(column.align), defaultCellClassName, column.cellClassName, className)}>
       {children}
     </div>
   )
@@ -457,12 +467,12 @@ export function GridTableRoot<TItem>({
     <GridTableContext.Provider value={{ items, columns, columnMap, totalColumns, getRowKey, defaultHeaderCellClassName, defaultCellClassName, sort, setSort: onSortChange, page, totalPages, setPage: onPageChange } as unknown as GridTableContextValue<unknown>}
     >
       <div
-        className={joinClassNames(
+        className={clsx(
           defaultContainerClassName,
           containerClassName,
         )}
       >
-        <div className={joinClassNames(defaultBodyClassName, bodyClassName)}>
+        <div className={clsx(defaultBodyClassName, bodyClassName)}>
           {children ? (
             children
           ) : (

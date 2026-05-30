@@ -1,11 +1,18 @@
-import {createContext} from 'react'
+import {createContext, useContext} from 'react'
 
 type ThemeContextValue = {
   theme: 'light' | 'dark'
   toggleTheme: () => void
 }
 
-export const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
-  toggleTheme: () => {}
-})
+const ThemeContext = createContext<ThemeContextValue | null>(null)
+
+export { ThemeContext }
+
+export function useTheme() : ThemeContextValue {
+  const context = useContext(ThemeContext)
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider')
+  }
+  return context
+}

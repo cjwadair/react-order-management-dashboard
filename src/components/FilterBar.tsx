@@ -138,28 +138,32 @@ export function FilterBar({
   }
 
   return (
-    <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
-      {fixedFilters.map((filter) => (
-        <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
-      ))}
-      {activeAdditionalFilters.map((filter) => (
-        <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
-      ))}
-      {additionalFilters.length > 0 && (
-        <AddFilterButton
-          filters={additionalFilters.map(({ id, label }) => ({ id, label }))}
-          activeFilterIds={activeAdditionalFilterIds}
-          onActivateFilter={activateAdditionalFilter}
-          triggerLabel={addFilterButtonLabel}
-        />
-      )}
-      <button
-        type="button"
-        onClick={() => [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())}
-        className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700"
-      >
-        {clearFiltersLabel}
-      </button>
+    <div className="page-row flex justify-between mt-4">
+      <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
+        {fixedFilters.map((filter) => (
+          <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
+        ))}
+        {activeAdditionalFilters.map((filter) => (
+          <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
+        ))}
+        <button
+          type="button"
+          onClick={() => [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())}
+          className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          >
+          {clearFiltersLabel}
+        </button>
+      </div>
+      <div>
+          {additionalFilters.length > 0 && (
+            <AddFilterButton
+              filters={additionalFilters.map(({ id, label }) => ({ id, label }))}
+              activeFilterIds={activeAdditionalFilterIds}
+              onActivateFilter={activateAdditionalFilter}
+              triggerLabel={addFilterButtonLabel}
+            />
+          )}
+      </div>
     </div>
   )
 }

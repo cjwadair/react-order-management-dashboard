@@ -32,3 +32,7 @@ export function parseISODate(str: string) {
   const [year, month, day] = str.split('-').map(Number)
   return new Date(year, month - 1, day)
 }
+
+export function camelToSnakeCase(str: string) {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
+}

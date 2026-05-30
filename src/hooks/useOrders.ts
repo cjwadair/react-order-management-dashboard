@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SortState } from '../components/GridTable'
+import { camelToSnakeCase } from '../utils/formatters'
 
 export const orderStatuses = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'completed'] as const
 
@@ -113,7 +114,7 @@ export function useOrders({
     if (deliveryDateTo) params.set('delivery_date_to', deliveryDateTo.toISOString().slice(0, 10))
     if (additionalFilterValues.salesRep) params.set('sales_rep', additionalFilterValues.salesRep)
     if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
-    params.set('sort_by', sort.field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`))
+    params.set('sort_by', camelToSnakeCase(sort.field))
     params.set('sort_order', sort.order)
     if (page > 1) params.set('page', page.toString())
 
