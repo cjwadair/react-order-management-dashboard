@@ -20,7 +20,7 @@ type AddFilterButtonProps<T extends string> = {
 }
 
 const defaultTriggerClassName =
-  'inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700 cursor-pointer rounded-md list-none'
+  'inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 border border-neutral-300 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700 cursor-pointer rounded-md list-none'
 
 const defaultMenuClassName =
   'absolute left-0 z-10 mt-2 rounded-md border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-800'

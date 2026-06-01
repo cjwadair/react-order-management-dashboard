@@ -39,7 +39,7 @@ export function App() {
               </NavLink>
               <NavLink
                 to="/orders"
-                className={({ isActive }) =>`flex flex-col gap-y-1.5 items-center w-full rounded-md px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 ${isActive ? 'bg-white shadow-md shadow-neutral-200 border border-neutral-100 dark:bg-neutral-800' : ''}`}
+                className={({ isActive }) =>`flex flex-col gap-y-1.5 items-center w-full rounded-md px-2 py-2 dark:hover:bg-neutral-800 ${isActive ? 'bg-white shadow-md shadow-neutral-200 border border-neutral-100 dark:bg-neutral-800' : ''}`}
               >
                 {({ isActive }) => (
                   <>

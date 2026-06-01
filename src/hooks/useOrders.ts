@@ -25,6 +25,7 @@ type SalesOrderResponse = {
   delivery_date: string
   order_status: string
   order_total: number
+  exception_type?: string
   consignee: { name: string }
   sales_rep: { name: string }
 }
@@ -78,6 +79,7 @@ function mapOrder(o: SalesOrderResponse): Order {
     orderTotal: o.order_total,
     deliveryDate: o.delivery_date,
     orderStatus: o.order_status as OrderStatus,
+    exceptionType: o.exception_type,
   }
 }
 

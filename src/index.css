@@ -24,6 +24,9 @@
   --color-neutral-700: #414F58;
   --color-neutral-800: #33444D;
   --color-neutral-900: #161B1D;
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
+  --breakpoint-5xl: 3840px;
 }
 
 html {
@@ -31,7 +34,15 @@ html {
 }
 
 .page-row {
-  @apply mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12;
+  @apply mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12;
+}
+
+.button-link {
+  @apply flex items-center cursor-pointer rounded-md px-2 py-1 text-accent-800 hover:text-accent-900 dark:text-neutral-400 dark:hover:text-neutral-200;
+}
+
+.button-outline {
+  @apply flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-700;
 }
 
   

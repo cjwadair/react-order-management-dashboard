@@ -22,7 +22,7 @@ export function PageHeader({ title, children }: PageHeaderProps) {
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-accent-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-400"
+              className="button-link gap-1.5 "
               aria-label="Toggle dark mode"
             >
               {theme === 'light'

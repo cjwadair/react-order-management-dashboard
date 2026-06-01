@@ -80,6 +80,23 @@ export function FilterBar({
     })
   }
 
+  function deactivateAdditionalFilter(filterId: string) {
+    setActiveAdditionalFilterIds((previousIds) => {
+      if (!previousIds.has(filterId)) {
+        return previousIds
+      }
+
+      const nextIds = new Set(previousIds)
+      nextIds.delete(filterId)
+      return nextIds
+    })
+  }
+
+  function clearAllFilters() {
+    [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())
+    activeAdditionalFilterIds.forEach((id) => deactivateAdditionalFilter(id))
+  }
+
   const fixedFilters = useMemo(
     () => filters.filter((f) => f.type !== 'dropdown' || !f.additional),
     [filters],
@@ -148,8 +165,8 @@ export function FilterBar({
         ))}
         <button
           type="button"
-          onClick={() => [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())}
-          className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700"
+          onClick={clearAllFilters}
+          className="button-link"
           >
           {clearFiltersLabel}
         </button>

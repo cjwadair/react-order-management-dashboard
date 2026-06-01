@@ -153,15 +153,15 @@ export function OrdersPage() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            className="button-outline"
           >
-            <FontAwesomeIcon icon={faDownload} className="text-lg text-accent-800" />
+            <FontAwesomeIcon icon={faDownload} className="text-lg text-accent-800 dark:text-neutral-400" />
           </button>
           <button
             type="button"
-            className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            className="button-outline"
           >
-            <FontAwesomeIcon icon={faPrint} className="text-lg text-accent-800" />
+            <FontAwesomeIcon icon={faPrint} className="text-lg text-accent-800 dark:text-neutral-400" />
           </button>
         </div>
       </PageHeader>

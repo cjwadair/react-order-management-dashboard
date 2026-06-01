@@ -119,7 +119,7 @@ const alignmentClassNames: Record<ColumnAlign, string> = {
   right: 'text-right',
 }
 
-const defaultContainerClassName = 'h-full overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 2xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
+const defaultContainerClassName = 'h-full overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
 const defaultBodyClassName = 'h-full flex flex-col w-full text-left text-sm'
 const defaultRowLayoutClassName = 'grid gap-2 justify-stretch items-center w-full'
 const defaultHeaderClassName = 'h-14 bg-accent-100 border border-accent-200 text-accent-800 dark:bg-neutral-800 dark:text-neutral-300 align-bottom'
