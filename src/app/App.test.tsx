@@ -42,6 +42,5 @@ describe('App', () => {
 
     expect(await screen.findByText('Sales Orders')).toBeInTheDocument()
     expect(await screen.findByText('ORD-1001')).toBeInTheDocument()
-    expect(await screen.findByText('Order Status: Any')).toBeInTheDocument()
   })  
 })

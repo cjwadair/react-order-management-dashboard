@@ -49,12 +49,12 @@ describe('FilterBar', () => {
     render(<FilterBar filters={[salesRepFilter]} />)
 
     await user.click(screen.getByText('Filter'))
-    await user.click(screen.getByRole('button', { name: 'Sales Rep' }))
+    await user.click(screen.getByRole('option', { name: 'Sales Rep' }))
 
     expect(screen.getByText('Sales Rep: Any')).toBeInTheDocument()
   })
 
-  it('clears an active additional filter when selecting Any without removing it', async () => {
+  it('removes an additional filter from the bar when its value is cleared', async () => {
     const user = userEvent.setup()
     const onClear = vi.fn()
 
@@ -79,7 +79,8 @@ describe('FilterBar', () => {
     await user.click(screen.getByRole('button', { name: 'Any Sales Rep' }))
 
     expect(onClear).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Sales Rep: Jordan Lee')).toBeInTheDocument()
+    expect(screen.queryByText('Sales Rep: Jordan Lee')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sales Rep: Any')).not.toBeInTheDocument()
   })
 
   it('hides Add Filter button when no additional filters are configured', () => {
@@ -88,8 +89,14 @@ describe('FilterBar', () => {
     expect(screen.queryByText('Filter')).not.toBeInTheDocument()
   })
 
-  it('renders clear filters control', () => {
-    render(<FilterBar filters={[]} />)
+  it('hides clear filters control when no filter has a value', () => {
+    render(<FilterBar filters={[{ type: 'search', id: 'search', value: '', onChange: vi.fn(), onClear: vi.fn() }]} />)
+
+    expect(screen.queryByRole('button', { name: 'Clear Filters' })).not.toBeInTheDocument()
+  })
+
+  it('shows clear filters control when a filter has a value', () => {
+    render(<FilterBar filters={[{ type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn() }]} />)
 
     expect(screen.getByRole('button', { name: 'Clear Filters' })).toBeInTheDocument()
   })
@@ -130,16 +137,19 @@ describe('FilterBar', () => {
 
     render(
       <FilterBar
-        filters={[{
-          type: 'dropdown',
-          id: 'salesRep',
-          label: 'Sales Rep',
-          options: ['Jordan Lee', 'Taylor Kim'],
-          selectedValue: undefined,
-          onSelect: vi.fn(),
-          onClear,
-          additional: true,
-        }]}
+        filters={[
+          { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn() },
+          {
+            type: 'dropdown',
+            id: 'salesRep',
+            label: 'Sales Rep',
+            options: ['Jordan Lee', 'Taylor Kim'],
+            selectedValue: undefined,
+            onSelect: vi.fn(),
+            onClear,
+            additional: true,
+          },
+        ]}
       />,
     )
 

@@ -54,6 +54,7 @@ export function useOrderFilters({
           value: dateFilters.orderDate,
           onChange: (update) => setDateFilter('orderDate', update),
           onClear: () => setDateFilter('orderDate', { from: undefined, to: new Date() }),
+          additional: true,
         },
         {
           type: 'dropdown',
@@ -64,6 +65,7 @@ export function useOrderFilters({
           onSelect: (value) => { setSelectedStatus(value as OrderStatus | undefined); setPage(1) },
           onClear: () => { setSelectedStatus(undefined); setPage(1) },
           placeholderValue: 'Any',
+          additional: true,
         },
         {
           type: 'dateRange',
@@ -72,6 +74,7 @@ export function useOrderFilters({
           value: dateFilters.deliveryDate,
           onChange: (update) => setDateFilter('deliveryDate', update),
           onClear: () => setDateFilter('deliveryDate', { from: undefined, to: new Date() }),
+          additional: true,
         },
         {
           type: 'dropdown',

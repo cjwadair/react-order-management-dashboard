@@ -156,6 +156,14 @@ export function OrdersPage() {
       },
     })
 
+    if (parsed.order_date_from !== undefined || parsed.order_date_to !== undefined) {
+      activateIds.add('orderDate')
+    }
+
+    if (parsed.status !== undefined) {
+      activateIds.add('status')
+    }
+
     if (parsed.delivery_date_from !== undefined || parsed.delivery_date_to !== undefined) {
       activateIds.add('deliveryDate')
     }

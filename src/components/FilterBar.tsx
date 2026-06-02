@@ -23,6 +23,7 @@ type DateRangeFilterConfig = {
   value: { from: Date | undefined; to: Date }
   onChange: (update: Partial<{ from: Date | undefined; to: Date }>) => void
   onClear: () => void
+  additional?: boolean
 }
 
 type DropdownFilterConfig = {
@@ -58,6 +59,14 @@ function mergeClassName(base: string, extra?: string) {
 
 const defaultDropdownMenuClassName =
   'absolute left-0 z-10 mt-2 w-44 rounded-md border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800'
+
+function filterHasValue(filter: FilterConfig): boolean {
+  switch (filter.type) {
+    case 'search':    return filter.value !== ''
+    case 'dateRange': return filter.value.from !== undefined
+    case 'dropdown':  return filter.selectedValue !== undefined
+  }
+}
 
 export function FilterBar({
   filters = [],
@@ -114,18 +123,26 @@ export function FilterBar({
   }
 
   const fixedFilters = useMemo(
-    () => filters.filter((f) => f.type !== 'dropdown' || !f.additional),
+    () => filters.filter((f) => !('additional' in f && f.additional)),
     [filters],
   )
 
   const additionalFilters = useMemo(
-    () => filters.filter((f): f is DropdownFilterConfig => f.type === 'dropdown' && !!f.additional),
+    () => filters.filter((f): f is DateRangeFilterConfig | DropdownFilterConfig => 'additional' in f && !!f.additional),
     [filters],
   )
 
   const activeAdditionalFilters = useMemo(
     () => additionalFilters.filter((f) => activeAdditionalFilterIds.has(f.id)),
     [activeAdditionalFilterIds, additionalFilters],
+  )
+
+  const anyFilterHasValue = useMemo(
+    () =>
+      filters
+        .filter((f) => !('additional' in f && f.additional) || activeAdditionalFilterIds.has(f.id))
+        .some(filterHasValue),
+    [filters, activeAdditionalFilterIds],
   )
 
   function renderFilter(filter: FilterConfig) {
@@ -170,6 +187,42 @@ export function FilterBar({
     }
   }
 
+  function renderAdditionalFilter(filter: DateRangeFilterConfig | DropdownFilterConfig) {
+    if (filter.type === 'dateRange') {
+      return (
+        <DateRangeFilter
+          label={filter.label}
+          value={filter.value}
+          onChange={filter.onChange}
+          onClear={() => {
+            filter.onClear()
+            deactivateAdditionalFilter(filter.id)
+          }}
+        />
+      )
+    }
+
+    const resolvedOptions = typeof filter.options === 'function' ? filter.options() : filter.options
+    return (
+      <DropdownFilter
+        options={resolvedOptions}
+        selectedValue={filter.selectedValue}
+        onSelect={(value) => {
+          if (value === undefined) {
+            filter.onClear()
+            deactivateAdditionalFilter(filter.id)
+            return
+          }
+          filter.onSelect(value)
+        }}
+        placeholderValue={filter.placeholderValue ?? 'Any'}
+        label={filter.label}
+        clearLabel={filter.clearLabel}
+        menuClassName={defaultDropdownMenuClassName}
+      />
+    )
+  }
+
   return (
     <div className="page-row flex justify-between mt-4">
       <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
@@ -177,25 +230,27 @@ export function FilterBar({
           <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
         ))}
         {activeAdditionalFilters.map((filter) => (
-          <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
+          <Fragment key={filter.id}>{renderAdditionalFilter(filter)}</Fragment>
         ))}
-        <button
-          type="button"
-          onClick={clearAllFilters}
-          className="button-link"
+        {anyFilterHasValue && (
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="button-link"
           >
-          {clearFiltersLabel}
-        </button>
+            {clearFiltersLabel}
+          </button>
+        )}
       </div>
       <div>
-          {additionalFilters.length > 0 && (
-            <AddFilterButton
-              filters={additionalFilters.map(({ id, label }) => ({ id, label }))}
-              activeFilterIds={activeAdditionalFilterIds}
-              onActivateFilter={activateAdditionalFilter}
-              triggerLabel={addFilterButtonLabel}
-            />
-          )}
+        {additionalFilters.length > 0 && (
+          <AddFilterButton
+            filters={additionalFilters.map(({ id, label }) => ({ id, label }))}
+            activeFilterIds={activeAdditionalFilterIds}
+            onActivateFilter={activateAdditionalFilter}
+            triggerLabel={addFilterButtonLabel}
+          />
+        )}
       </div>
     </div>
   )

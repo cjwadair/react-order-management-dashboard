@@ -11,9 +11,10 @@ type DateRangeFilterProps = {
   label: string
   value: DateRange
   onChange: (update: Partial<DateRange>) => void
+  onClear?: () => void
 }
 
-export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({ label, value, onChange, onClear }: DateRangeFilterProps) {
   const rangeLabel = useMemo(() => {
     return `${label}: ${value.from ? formattedDate(value.from) : 'Any'} to ${formattedDate(value.to)}`
   }, [label, value])
@@ -63,6 +64,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
               type="button"
               onClick={() => {
                 onChange({ from: undefined, to: new Date() })
+                onClear?.()
                 setIsOpen(false)
               }}
               className="inline-flex items-center gap-2 rounded-md border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700"

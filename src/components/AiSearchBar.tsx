@@ -49,18 +49,6 @@ export function AiSearchBar({ onSearch, onClearHistory, isLoading, hasHistory, e
             New search
           </button>
         )}
-        <button
-          type="submit"
-          disabled={!query.trim() || isLoading}
-          className="inline-flex items-center gap-2 rounded-md bg-brand-500 px-3 py-2 text-sm text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            <FontAwesomeIcon icon={faWandMagicSparkles} className="text-sm" />
-          )}
-          {isLoading ? 'Searching…' : 'Search'}
-        </button>
       </form>
       {error && (
         <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
