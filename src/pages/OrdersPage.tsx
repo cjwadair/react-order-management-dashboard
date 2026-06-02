@@ -3,6 +3,8 @@ import { useDebounce } from '../hooks/useDebounce'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar } from '../components/FilterBar'
+import { AiSearchBar } from '../components/AiSearchBar'
+import { useAiSearch } from '../hooks/useAiSearch'
 import { GridTable, type GridColumn, type SortState } from '../components/GridTable'
 import { capitalizeWords, formattedDate, parseISODate } from '../utils/formatters'
 import {
@@ -94,6 +96,9 @@ export function OrdersPage() {
   const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
   const [page, setPage] = useState(1)
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
+  const [activeAdditionalFilterIds, setActiveAdditionalFilterIds] = useState<Set<string>>(() => new Set())
+
+  const { parseQuery, clearHistory, hasHistory, isLoading: isAiLoading, error: aiError } = useAiSearch()
   
   // Debounce search so network requests only fire once the user pauses
   // typing, rather than on every keystroke.
@@ -117,6 +122,58 @@ export function OrdersPage() {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
     setPage(1)
   }, [])
+
+  const handleClearHistory = useCallback(() => {
+    clearHistory()
+    const defaults = getDefaultDateFilters()
+    setSearchTerm('')
+    setSelectedStatus(undefined)
+    setDateFilters(defaults)
+    setAdditionalFilterValues({})
+    setActiveAdditionalFilterIds(new Set())
+    setPage(1)
+  }, [clearHistory])
+
+  const handleAiSearch = useCallback(async (query: string) => {
+    const parsed = await parseQuery(query)
+    const defaults = getDefaultDateFilters()
+    const activateIds = new Set<string>()
+    const newAdditionalValues: AdditionalFilterValues = {}
+
+    // Reset all filter state to defaults, then apply only what the AI returned.
+    // This prevents stale filters from previous manual or AI selections persisting.
+    setSearchTerm(parsed.search ?? '')
+    setSelectedStatus(parsed.status)
+
+    setDateFilters({
+      orderDate: {
+        from: parsed.order_date_from ? new Date(`${parsed.order_date_from}T00:00:00`) : defaults.orderDate.from,
+        to: parsed.order_date_to ? new Date(`${parsed.order_date_to}T00:00:00`) : defaults.orderDate.to,
+      },
+      deliveryDate: {
+        from: parsed.delivery_date_from ? new Date(`${parsed.delivery_date_from}T00:00:00`) : defaults.deliveryDate.from,
+        to: parsed.delivery_date_to ? new Date(`${parsed.delivery_date_to}T00:00:00`) : defaults.deliveryDate.to,
+      },
+    })
+
+    if (parsed.delivery_date_from !== undefined || parsed.delivery_date_to !== undefined) {
+      activateIds.add('deliveryDate')
+    }
+
+    if (parsed.sales_rep !== undefined) {
+      newAdditionalValues.salesRep = parsed.sales_rep
+      activateIds.add('salesRep')
+    }
+
+    if (parsed.customer !== undefined) {
+      newAdditionalValues.customer = parsed.customer
+      activateIds.add('customer')
+    }
+
+    setAdditionalFilterValues(newAdditionalValues)
+    setActiveAdditionalFilterIds(activateIds)
+    setPage(1)
+  }, [parseQuery])
 
   const setDateFilter = useCallback((key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) => {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
@@ -166,8 +223,18 @@ export function OrdersPage() {
         </div>
       </PageHeader>
 
+      <AiSearchBar
+        onSearch={handleAiSearch}
+        onClearHistory={handleClearHistory}
+        hasHistory={hasHistory}
+        isLoading={isAiLoading}
+        error={aiError}
+      />
+
       <FilterBar
         filters={filters}
+        activeAdditionalFilterIds={activeAdditionalFilterIds}
+        onActiveAdditionalFilterIdsChange={setActiveAdditionalFilterIds}
       />
       
       <div className="flex-1 min-h-0 mt-1 mb-4">

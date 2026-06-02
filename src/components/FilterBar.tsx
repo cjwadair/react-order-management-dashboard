@@ -43,6 +43,8 @@ export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | Dropdown
 type FilterBarProps = {
   filters?: readonly FilterConfig[]
   defaultActiveAdditionalFilterIds?: readonly string[]
+  activeAdditionalFilterIds?: Set<string>
+  onActiveAdditionalFilterIdsChange?: (ids: Set<string>) => void
   filtersClassName?: string
   addFilterButtonLabel?: string
   clearFiltersLabel?: string
@@ -60,13 +62,27 @@ const defaultDropdownMenuClassName =
 export function FilterBar({
   filters = [],
   defaultActiveAdditionalFilterIds = [],
+  activeAdditionalFilterIds: controlledActiveIds,
+  onActiveAdditionalFilterIdsChange,
   filtersClassName,
   addFilterButtonLabel,
   clearFiltersLabel = 'Clear Filters',
 }: FilterBarProps) {
-  const [activeAdditionalFilterIds, setActiveAdditionalFilterIds] = useState<Set<string>>(
+  const [internalActiveIds, setInternalActiveIds] = useState<Set<string>>(
     () => new Set(defaultActiveAdditionalFilterIds),
   )
+
+  const isControlled = controlledActiveIds !== undefined
+  const activeAdditionalFilterIds = isControlled ? controlledActiveIds : internalActiveIds
+
+  function setActiveAdditionalFilterIds(updater: (prev: Set<string>) => Set<string>) {
+    const next = updater(activeAdditionalFilterIds)
+    if (isControlled) {
+      onActiveAdditionalFilterIdsChange?.(next)
+    } else {
+      setInternalActiveIds(next)
+    }
+  }
 
   function activateAdditionalFilter(filterId: string) {
     setActiveAdditionalFilterIds((previousIds) => {
