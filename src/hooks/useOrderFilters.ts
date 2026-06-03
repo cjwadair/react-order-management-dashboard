@@ -46,7 +46,7 @@ export type UseOrderFiltersParams = {
   }
   setPage: (page: number) => void
   setSort: (sort: SortState<Order>) => void
-  setActiveAdditionalFilterIds: (ids: Set<string>) => void
+  setActiveFilterIds: (ids: Set<string>) => void
 }
 
 export function useOrderFilters({
@@ -55,7 +55,7 @@ export function useOrderFilters({
   selectedStatus, setSelectedStatus,
   additionalFilterValues, setAdditionalFilterValue,
   filterOptions, setPage,
-  setSort, setActiveAdditionalFilterIds,
+  setSort, setActiveFilterIds,
 }: UseOrderFiltersParams): FilterConfig[] {
 
   const { parseQuery, clearHistory, injectStateCorrection, hasHistory, isLoading: isAiLoading, error: aiError } = useAiSearch()
@@ -85,7 +85,8 @@ export function useOrderFilters({
 
     setAdditionalFilterValue('salesRep', parsed.sales_rep)
     setAdditionalFilterValue('customer', parsed.customer)
-    setActiveAdditionalFilterIds(activateIds)
+    activateIds.add('aiSearch')
+    setActiveFilterIds(activateIds)
 
     const sortField = parsed.sort_by ? AI_SORT_FIELD_MAP[parsed.sort_by] : undefined
     setSort(sortField
@@ -94,7 +95,7 @@ export function useOrderFilters({
     )
 
     setPage(1)
-  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setAdditionalFilterValue, setActiveAdditionalFilterIds, setSort, setPage])
+  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setAdditionalFilterValue, setActiveFilterIds, setSort, setPage])
 
   const buildCurrentParsedFilters = useCallback((overrides: Partial<ParsedFilters> = {}): ParsedFilters => ({
     search: searchTerm || undefined,
@@ -117,6 +118,8 @@ export function useOrderFilters({
       hasHistory,
       isLoading: isAiLoading,
       error: aiError,
+      activeByDefault: true,
+      active: true,
     },
     {
       type: 'search',
@@ -130,7 +133,6 @@ export function useOrderFilters({
       onClear: () => { setSearchTerm(''); setPage(1) },
       placeholder: 'Search orders...',
       ariaLabel: 'Search orders',
-      additional: true,
     },
     {
       type: 'dateRange',
@@ -149,7 +151,6 @@ export function useOrderFilters({
         }
       },
       onClear: () => setDateFilter('orderDate', { from: undefined, to: new Date() }),
-      additional: true,
     },
     {
       type: 'dropdown',
@@ -164,7 +165,6 @@ export function useOrderFilters({
       },
       onClear: () => { setSelectedStatus(undefined); setPage(1) },
       placeholderValue: 'Any',
-      additional: true,
     },
     {
       type: 'dateRange',
@@ -183,7 +183,6 @@ export function useOrderFilters({
         }
       },
       onClear: () => setDateFilter('deliveryDate', { from: undefined, to: new Date() }),
-      additional: true,
     },
     {
       type: 'dropdown',
@@ -197,7 +196,6 @@ export function useOrderFilters({
       },
       onClear: () => setAdditionalFilterValue('salesRep', undefined),
       placeholderValue: 'Any',
-      additional: true,
     },
     {
       type: 'dropdown',
@@ -211,7 +209,6 @@ export function useOrderFilters({
       },
       onClear: () => setAdditionalFilterValue('customer', undefined),
       placeholderValue: 'Any',
-      additional: true,
     },
   ], [
     filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, additionalFilterValues,

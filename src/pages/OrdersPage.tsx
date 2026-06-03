@@ -86,7 +86,7 @@ export function OrdersPage() {
   const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
   const [page, setPage] = useState(1)
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
-  const [activeAdditionalFilterIds, setActiveAdditionalFilterIds] = useState<Set<string>>(() => new Set())
+  const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(() => new Set(['aiSearch']))
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -131,7 +131,7 @@ export function OrdersPage() {
     filterOptions,
     setPage,
     setSort,
-    setActiveAdditionalFilterIds,
+    setActiveFilterIds,
   })
 
   return (
@@ -161,8 +161,8 @@ export function OrdersPage() {
 
       <FilterBar
         filters={filters}
-        activeAdditionalFilterIds={activeAdditionalFilterIds}
-        onActiveAdditionalFilterIdsChange={setActiveAdditionalFilterIds}
+        activeFilterIds={activeFilterIds}
+        onActiveFilterIdsChange={setActiveFilterIds}
       />
 
       <div className="flex-1 min-h-0 mt-1 mb-4">

@@ -15,7 +15,8 @@ type SearchFilterConfig = {
   onClear: () => void
   placeholder?: string
   ariaLabel?: string
-  additional?: boolean
+  active?: boolean
+  activeByDefault?: boolean
 }
 
 type DateRangeFilterConfig = {
@@ -25,7 +26,8 @@ type DateRangeFilterConfig = {
   value: { from: Date | undefined; to: Date }
   onChange: (update: Partial<{ from: Date | undefined; to: Date }>) => void
   onClear: () => void
-  additional?: boolean
+  active?: boolean
+  activeByDefault?: boolean
 }
 
 type DropdownFilterConfig = {
@@ -36,7 +38,8 @@ type DropdownFilterConfig = {
   selectedValue: string | undefined
   onSelect: (value: string | undefined) => void
   onClear: () => void
-  additional?: boolean
+  active?: boolean
+  activeByDefault?: boolean
   placeholderValue?: DropdownPlaceholder
   clearLabel?: string
 }
@@ -49,16 +52,16 @@ export type AiSearchFilterConfig = {
   hasHistory: boolean
   isLoading: boolean
   error: string | null
-  additional?: false
+  active?: boolean
+  activeByDefault?: boolean
 }
 
 export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | DropdownFilterConfig | AiSearchFilterConfig
 
 type FilterBarProps = {
   filters?: readonly FilterConfig[]
-  defaultActiveAdditionalFilterIds?: readonly string[]
-  activeAdditionalFilterIds?: Set<string>
-  onActiveAdditionalFilterIdsChange?: (ids: Set<string>) => void
+  activeFilterIds?: Set<string>
+  onActiveFilterIdsChange?: (ids: Set<string>) => void
   filtersClassName?: string
   addFilterButtonLabel?: string
   clearFiltersLabel?: string
@@ -84,31 +87,30 @@ function filterHasValue(filter: FilterConfig): boolean {
 
 export function FilterBar({
   filters = [],
-  defaultActiveAdditionalFilterIds = [],
-  activeAdditionalFilterIds: controlledActiveIds,
-  onActiveAdditionalFilterIdsChange,
+  activeFilterIds: controlledActiveIds,
+  onActiveFilterIdsChange,
   filtersClassName,
   addFilterButtonLabel,
   clearFiltersLabel = 'Clear Filters',
 }: FilterBarProps) {
   const [internalActiveIds, setInternalActiveIds] = useState<Set<string>>(
-    () => new Set(defaultActiveAdditionalFilterIds),
+    () => new Set(filters.filter((f) => f.active).map((f) => f.id)),
   )
 
   const isControlled = controlledActiveIds !== undefined
-  const activeAdditionalFilterIds = isControlled ? controlledActiveIds : internalActiveIds
+  const activeFilterIds = isControlled ? controlledActiveIds : internalActiveIds
 
-  function setActiveAdditionalFilterIds(updater: (prev: Set<string>) => Set<string>) {
-    const next = updater(activeAdditionalFilterIds)
+  function setActiveFilterIds(updater: (prev: Set<string>) => Set<string>) {
+    const next = updater(activeFilterIds)
     if (isControlled) {
-      onActiveAdditionalFilterIdsChange?.(next)
+      onActiveFilterIdsChange?.(next)
     } else {
       setInternalActiveIds(next)
     }
   }
 
-  function activateAdditionalFilter(filterId: string) {
-    setActiveAdditionalFilterIds((previousIds) => {
+  function activateFilter(filterId: string) {
+    setActiveFilterIds((previousIds) => {
       if (previousIds.has(filterId)) {
         return previousIds
       }
@@ -119,8 +121,8 @@ export function FilterBar({
     })
   }
 
-  function deactivateAdditionalFilter(filterId: string) {
-    setActiveAdditionalFilterIds((previousIds) => {
+  function deactivateFilter(filterId: string) {
+    setActiveFilterIds((previousIds) => {
       if (!previousIds.has(filterId)) {
         return previousIds
       }
@@ -132,50 +134,41 @@ export function FilterBar({
   }
 
   function clearAllFilters() {
-    [...fixedFilters, ...activeAdditionalFilters].forEach((f) => f.onClear())
-    activeAdditionalFilterIds.forEach((id) => deactivateAdditionalFilter(id))
+    activeFilters.forEach((f) => f.onClear())
+    setActiveFilterIds((prev) => {
+      const next = new Set(prev)
+      activeFilters.forEach((f) => {
+        if (!f.activeByDefault) next.delete(f.id)
+      })
+      return next
+    })
   }
 
-  const fixedFilters = useMemo(
-    () => filters.filter((f) => !f.additional),
-    [filters],
+  const activeFilters = useMemo(
+    () => filters.filter((f) => activeFilterIds.has(f.id)),
+    [activeFilterIds, filters],
   )
 
-  const aiFilter = useMemo(
-    () => fixedFilters.find((f) => f.type === 'aiSearch') as AiSearchFilterConfig | undefined,
-    [fixedFilters],
-  )
-
-  const nonAiFixedFilters = useMemo(
-    () => fixedFilters.filter((f) => f.type !== 'aiSearch'),
-    [fixedFilters],
-  )
-
-  const additionalFilters = useMemo(
-    () => filters.filter((f) => !!f.additional),
-    [filters],
-  )
-
-  const activeAdditionalFilters = useMemo(
-    () => additionalFilters.filter((f) => activeAdditionalFilterIds.has(f.id)),
-    [activeAdditionalFilterIds, additionalFilters],
+  const inactiveFilters = useMemo(
+    () => filters.filter((f) => !activeFilterIds.has(f.id)),
+    [activeFilterIds, filters],
   )
 
   const anyFilterHasValue = useMemo(
-    () =>
-      filters
-        .filter((f) => !('additional' in f && f.additional) || activeAdditionalFilterIds.has(f.id))
-        .some(filterHasValue),
-    [filters, activeAdditionalFilterIds],
+    () => activeFilters.some(filterHasValue),
+    [activeFilters],
   )
 
-  function renderFilter(filter: FilterConfig) {
+  function renderActiveFilter(filter: FilterConfig) {
     switch (filter.type) {
       case 'search':
         return (
           <SearchInput
             value={filter.value}
-            onChange={filter.onChange}
+            onChange={(v) => {
+              filter.onChange(v)
+              if (v === '' && !filter.activeByDefault) deactivateFilter(filter.id)
+            }}
             placeholder={filter.placeholder}
             ariaLabel={filter.ariaLabel}
           />
@@ -186,6 +179,10 @@ export function FilterBar({
             label={filter.label}
             value={filter.value}
             onChange={filter.onChange}
+            onClear={() => {
+              filter.onClear()
+              if (!filter.activeByDefault) deactivateFilter(filter.id)
+            }}
           />
         )
       case 'dropdown': {
@@ -197,6 +194,7 @@ export function FilterBar({
             onSelect={(value) => {
               if (value === undefined) {
                 filter.onClear()
+                if (!filter.activeByDefault) deactivateFilter(filter.id)
                 return
               }
               filter.onSelect(value)
@@ -212,7 +210,10 @@ export function FilterBar({
         return (
           <AiSearchBar
             onSearch={filter.onSearch}
-            onClearHistory={filter.onClear}
+            onClearHistory={() => {
+              filter.onClear()
+              if (!filter.activeByDefault) deactivateFilter(filter.id)
+            }}
             hasHistory={filter.hasHistory}
             isLoading={filter.isLoading}
             error={filter.error}
@@ -221,80 +222,28 @@ export function FilterBar({
     }
   }
 
-  function renderAdditionalFilter(filter: FilterConfig) {
-    if (filter.type === 'search') {
-      return (
-        <SearchInput
-          value={filter.value}
-          onChange={(v) => {
-            filter.onChange(v)
-            if (v === '') deactivateAdditionalFilter(filter.id)
-          }}
-          placeholder={filter.placeholder}
-          ariaLabel={filter.ariaLabel}
-        />
-      )
-    }
+  const activeAiFilter = activeFilters.find((f) => f.type === 'aiSearch') as AiSearchFilterConfig | undefined
 
-    if (filter.type === 'dateRange') {
-      return (
-        <DateRangeFilter
-          label={filter.label}
-          value={filter.value}
-          onChange={filter.onChange}
-          onClear={() => {
-            filter.onClear()
-            deactivateAdditionalFilter(filter.id)
-          }}
-        />
-      )
-    }
-
-    if (filter.type === 'aiSearch') return null
-
-    const resolvedOptions = typeof filter.options === 'function' ? filter.options() : filter.options
-    return (
-      <DropdownFilter
-        options={resolvedOptions}
-        selectedValue={filter.selectedValue}
-        onSelect={(value) => {
-          if (value === undefined) {
-            filter.onClear()
-            deactivateAdditionalFilter(filter.id)
-            return
-          }
-          filter.onSelect(value)
-        }}
-        placeholderValue={filter.placeholderValue ?? 'Any'}
-        label={filter.label}
-        clearLabel={filter.clearLabel}
-        menuClassName={defaultDropdownMenuClassName}
-      />
-    )
-  }
-
-  if (aiFilter) {
-    const hasFilterRow = nonAiFixedFilters.length > 0 || activeAdditionalFilters.length > 0 || anyFilterHasValue
+  if (activeAiFilter) {
+    const activeNonAiFilters = activeFilters.filter((f) => f.type !== 'aiSearch')
+    const hasFilterRow = activeNonAiFilters.length > 0 || anyFilterHasValue
     return (
       <div className="page-row flex flex-col gap-3">
         <div className="flex items-center gap-4">
-          <div className="flex-1">{renderFilter(aiFilter)}</div>
-          {additionalFilters.length > 0 && (
+          <div className="flex-1">{renderActiveFilter(activeAiFilter)}</div>
+          {inactiveFilters.length > 0 && (
             <AddFilterButton
-              filters={additionalFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
-              activeFilterIds={activeAdditionalFilterIds}
-              onActivateFilter={activateAdditionalFilter}
+              filters={inactiveFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
+              activeFilterIds={activeFilterIds}
+              onActivateFilter={activateFilter}
               triggerLabel={addFilterButtonLabel}
             />
           )}
         </div>
         {hasFilterRow && (
           <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
-            {nonAiFixedFilters.map((filter) => (
-              <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
-            ))}
-            {activeAdditionalFilters.map((filter) => (
-              <Fragment key={filter.id}>{renderAdditionalFilter(filter)}</Fragment>
+            {activeNonAiFilters.map((filter) => (
+              <Fragment key={filter.id}>{renderActiveFilter(filter)}</Fragment>
             ))}
             <button type="button" onClick={clearAllFilters} className="button-link">
               {clearFiltersLabel}
@@ -308,11 +257,8 @@ export function FilterBar({
   return (
     <div className="page-row flex justify-between mt-4">
       <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
-        {fixedFilters.map((filter) => (
-          <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
-        ))}
-        {activeAdditionalFilters.map((filter) => (
-          <Fragment key={filter.id}>{renderAdditionalFilter(filter)}</Fragment>
+        {activeFilters.map((filter) => (
+          <Fragment key={filter.id}>{renderActiveFilter(filter)}</Fragment>
         ))}
         {anyFilterHasValue && (
           <button
@@ -325,11 +271,11 @@ export function FilterBar({
         )}
       </div>
       <div>
-        {additionalFilters.length > 0 && (
+        {inactiveFilters.length > 0 && (
           <AddFilterButton
-            filters={additionalFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
-            activeFilterIds={activeAdditionalFilterIds}
-            onActivateFilter={activateAdditionalFilter}
+            filters={inactiveFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
+            activeFilterIds={activeFilterIds}
+            onActivateFilter={activateFilter}
             triggerLabel={addFilterButtonLabel}
           />
         )}
