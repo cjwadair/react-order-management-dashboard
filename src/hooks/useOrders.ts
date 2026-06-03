@@ -7,7 +7,7 @@ export const orderStatuses = ['pending', 'approved', 'processing', 'shipped', 'd
 export type OrderStatus = (typeof orderStatuses)[number]
 
 export type Order = {
-  id: string
+  orderNumber: string
   orderType: string
   orderDate: string
   customer: string
@@ -71,7 +71,7 @@ type UseOrdersResult = {
 
 function mapOrder(o: SalesOrderResponse): Order {
   return {
-    id: o.order_number,
+    orderNumber: o.order_number,
     orderType: o.order_type,
     orderDate: o.order_date,
     customer: o.consignee.name,

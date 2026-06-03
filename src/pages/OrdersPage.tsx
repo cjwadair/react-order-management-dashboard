@@ -3,35 +3,25 @@ import { useDebounce } from '../hooks/useDebounce'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar } from '../components/FilterBar'
-import { AiSearchBar } from '../components/AiSearchBar'
-import { useAiSearch } from '../hooks/useAiSearch'
 import { GridTable, type GridColumn, type SortState } from '../components/GridTable'
 import { capitalizeWords, formattedDate, parseISODate } from '../utils/formatters'
 import {
   useOrders,
   type Order,
   type OrderStatus,
-  type AdditionalFilterId,
   type AdditionalFilterValues,
 } from '../hooks/useOrders'
 import { PageHeader } from '../components/PageHeader'
 import { useFilterOptions } from '../hooks/useFilterOptions'
-import { useOrderFilters } from '../hooks/useOrderFilters'
-
-function getDefaultDateFilters() {
-  return {
-    orderDate: { from: undefined as Date | undefined, to: new Date() },
-    deliveryDate: { from: undefined as Date | undefined, to: new Date() }
-  }
-}
+import { useOrderFilters, getDefaultDateFilters } from '../hooks/useOrderFilters'
 
 const orderTableColumns: readonly GridColumn<Order>[] = [
   {
-    field: 'id',
+    field: 'orderNumber',
     header: 'Order Number',
     customCell: (order) => (
       <div className="flex flex-col">
-        <span>{order.id}</span>
+        <span>{order.orderNumber}</span>
         {order.exceptionType && (
           <span className="text-sm text-brand-500 dark:text-neutral-400">{order.exceptionType}</span>
         )}
@@ -98,12 +88,8 @@ export function OrdersPage() {
   const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
   const [activeAdditionalFilterIds, setActiveAdditionalFilterIds] = useState<Set<string>>(() => new Set())
 
-  const { parseQuery, clearHistory, hasHistory, isLoading: isAiLoading, error: aiError } = useAiSearch()
-  
-  // Debounce search so network requests only fire once the user pauses
-  // typing, rather than on every keystroke.
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
-  
+
   const { orders, isLoading, isFetching, error, totalPages } = useOrders({
     searchTerm: debouncedSearchTerm,
     orderDateFrom: dateFilters.orderDate.from,
@@ -115,73 +101,13 @@ export function OrdersPage() {
     sort,
     page,
   })
-  
+
   const filterOptions = useFilterOptions()
 
-  const setAdditionalFilterValue = useCallback((filterId: AdditionalFilterId, value: string | undefined) => {
+  const setAdditionalFilterValue = useCallback((filterId: keyof AdditionalFilterValues, value: string | undefined) => {
     setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
     setPage(1)
   }, [])
-
-  const handleClearHistory = useCallback(() => {
-    clearHistory()
-    const defaults = getDefaultDateFilters()
-    setSearchTerm('')
-    setSelectedStatus(undefined)
-    setDateFilters(defaults)
-    setAdditionalFilterValues({})
-    setActiveAdditionalFilterIds(new Set())
-    setPage(1)
-  }, [clearHistory])
-
-  const handleAiSearch = useCallback(async (query: string) => {
-    const parsed = await parseQuery(query)
-    const defaults = getDefaultDateFilters()
-    const activateIds = new Set<string>()
-    const newAdditionalValues: AdditionalFilterValues = {}
-
-    // Reset all filter state to defaults, then apply only what the AI returned.
-    // This prevents stale filters from previous manual or AI selections persisting.
-    setSearchTerm(parsed.search ?? '')
-    setSelectedStatus(parsed.status)
-
-    setDateFilters({
-      orderDate: {
-        from: parsed.order_date_from ? new Date(`${parsed.order_date_from}T00:00:00`) : defaults.orderDate.from,
-        to: parsed.order_date_to ? new Date(`${parsed.order_date_to}T00:00:00`) : defaults.orderDate.to,
-      },
-      deliveryDate: {
-        from: parsed.delivery_date_from ? new Date(`${parsed.delivery_date_from}T00:00:00`) : defaults.deliveryDate.from,
-        to: parsed.delivery_date_to ? new Date(`${parsed.delivery_date_to}T00:00:00`) : defaults.deliveryDate.to,
-      },
-    })
-
-    if (parsed.order_date_from !== undefined || parsed.order_date_to !== undefined) {
-      activateIds.add('orderDate')
-    }
-
-    if (parsed.status !== undefined) {
-      activateIds.add('status')
-    }
-
-    if (parsed.delivery_date_from !== undefined || parsed.delivery_date_to !== undefined) {
-      activateIds.add('deliveryDate')
-    }
-
-    if (parsed.sales_rep !== undefined) {
-      newAdditionalValues.salesRep = parsed.sales_rep
-      activateIds.add('salesRep')
-    }
-
-    if (parsed.customer !== undefined) {
-      newAdditionalValues.customer = parsed.customer
-      activateIds.add('customer')
-    }
-
-    setAdditionalFilterValues(newAdditionalValues)
-    setActiveAdditionalFilterIds(activateIds)
-    setPage(1)
-  }, [parseQuery])
 
   const setDateFilter = useCallback((key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) => {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
@@ -204,6 +130,8 @@ export function OrdersPage() {
     setAdditionalFilterValue,
     filterOptions,
     setPage,
+    setSort,
+    setActiveAdditionalFilterIds,
   })
 
   return (
@@ -231,20 +159,12 @@ export function OrdersPage() {
         </div>
       </PageHeader>
 
-      <AiSearchBar
-        onSearch={handleAiSearch}
-        onClearHistory={handleClearHistory}
-        hasHistory={hasHistory}
-        isLoading={isAiLoading}
-        error={aiError}
-      />
-
       <FilterBar
         filters={filters}
         activeAdditionalFilterIds={activeAdditionalFilterIds}
         onActiveAdditionalFilterIdsChange={setActiveAdditionalFilterIds}
       />
-      
+
       <div className="flex-1 min-h-0 mt-1 mb-4">
           {error ? (
             <div className="border-t border-neutral-200 dark:border-neutral-700">
@@ -260,7 +180,7 @@ export function OrdersPage() {
                 items={orders}
                 columns={orderTableColumns}
                 totalColumns={9}
-                getRowKey={(order) => order.id}
+                getRowKey={(order) => order.orderNumber}
                 sort={sort}
                 onSortChange={handleSortValue}
                 page={page}

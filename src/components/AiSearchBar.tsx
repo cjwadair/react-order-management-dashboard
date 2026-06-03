@@ -22,7 +22,7 @@ export function AiSearchBar({ onSearch, onClearHistory, isLoading, hasHistory, e
   }
 
   return (
-    <div className="page-row">
+    <div>
       <form onSubmit={handleSubmit} className="flex items-center gap-2 w-full">
         <div className="relative flex-1 text-base text-neutral-600">
           <FontAwesomeIcon

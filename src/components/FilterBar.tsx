@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { AddFilterButton } from './AddFilterButton'
+import { AiSearchBar } from './AiSearchBar'
 import { DateRangeFilter } from './DateRangeFilter'
 import { DropdownFilter } from './DropdownFilter'
 import { SearchInput } from './SearchInput'
@@ -14,6 +15,7 @@ type SearchFilterConfig = {
   onClear: () => void
   placeholder?: string
   ariaLabel?: string
+  additional?: boolean
 }
 
 type DateRangeFilterConfig = {
@@ -39,7 +41,18 @@ type DropdownFilterConfig = {
   clearLabel?: string
 }
 
-export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | DropdownFilterConfig
+export type AiSearchFilterConfig = {
+  type: 'aiSearch'
+  id: string
+  onSearch: (query: string) => Promise<void>
+  onClear: () => void
+  hasHistory: boolean
+  isLoading: boolean
+  error: string | null
+  additional?: false
+}
+
+export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | DropdownFilterConfig | AiSearchFilterConfig
 
 type FilterBarProps = {
   filters?: readonly FilterConfig[]
@@ -65,6 +78,7 @@ function filterHasValue(filter: FilterConfig): boolean {
     case 'search':    return filter.value !== ''
     case 'dateRange': return filter.value.from !== undefined
     case 'dropdown':  return filter.selectedValue !== undefined
+    case 'aiSearch':  return filter.hasHistory
   }
 }
 
@@ -123,12 +137,22 @@ export function FilterBar({
   }
 
   const fixedFilters = useMemo(
-    () => filters.filter((f) => !('additional' in f && f.additional)),
+    () => filters.filter((f) => !f.additional),
     [filters],
   )
 
+  const aiFilter = useMemo(
+    () => fixedFilters.find((f) => f.type === 'aiSearch') as AiSearchFilterConfig | undefined,
+    [fixedFilters],
+  )
+
+  const nonAiFixedFilters = useMemo(
+    () => fixedFilters.filter((f) => f.type !== 'aiSearch'),
+    [fixedFilters],
+  )
+
   const additionalFilters = useMemo(
-    () => filters.filter((f): f is DateRangeFilterConfig | DropdownFilterConfig => 'additional' in f && !!f.additional),
+    () => filters.filter((f) => !!f.additional),
     [filters],
   )
 
@@ -184,10 +208,34 @@ export function FilterBar({
           />
         )
       }
+      case 'aiSearch':
+        return (
+          <AiSearchBar
+            onSearch={filter.onSearch}
+            onClearHistory={filter.onClear}
+            hasHistory={filter.hasHistory}
+            isLoading={filter.isLoading}
+            error={filter.error}
+          />
+        )
     }
   }
 
-  function renderAdditionalFilter(filter: DateRangeFilterConfig | DropdownFilterConfig) {
+  function renderAdditionalFilter(filter: FilterConfig) {
+    if (filter.type === 'search') {
+      return (
+        <SearchInput
+          value={filter.value}
+          onChange={(v) => {
+            filter.onChange(v)
+            if (v === '') deactivateAdditionalFilter(filter.id)
+          }}
+          placeholder={filter.placeholder}
+          ariaLabel={filter.ariaLabel}
+        />
+      )
+    }
+
     if (filter.type === 'dateRange') {
       return (
         <DateRangeFilter
@@ -201,6 +249,8 @@ export function FilterBar({
         />
       )
     }
+
+    if (filter.type === 'aiSearch') return null
 
     const resolvedOptions = typeof filter.options === 'function' ? filter.options() : filter.options
     return (
@@ -223,6 +273,38 @@ export function FilterBar({
     )
   }
 
+  if (aiFilter) {
+    const hasFilterRow = nonAiFixedFilters.length > 0 || activeAdditionalFilters.length > 0 || anyFilterHasValue
+    return (
+      <div className="page-row flex flex-col gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">{renderFilter(aiFilter)}</div>
+          {additionalFilters.length > 0 && (
+            <AddFilterButton
+              filters={additionalFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
+              activeFilterIds={activeAdditionalFilterIds}
+              onActivateFilter={activateAdditionalFilter}
+              triggerLabel={addFilterButtonLabel}
+            />
+          )}
+        </div>
+        {hasFilterRow && (
+          <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
+            {nonAiFixedFilters.map((filter) => (
+              <Fragment key={filter.id}>{renderFilter(filter)}</Fragment>
+            ))}
+            {activeAdditionalFilters.map((filter) => (
+              <Fragment key={filter.id}>{renderAdditionalFilter(filter)}</Fragment>
+            ))}
+            <button type="button" onClick={clearAllFilters} className="button-link">
+              {clearFiltersLabel}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="page-row flex justify-between mt-4">
       <div className={mergeClassName(defaultFiltersClassName, filtersClassName)}>
@@ -236,7 +318,7 @@ export function FilterBar({
           <button
             type="button"
             onClick={clearAllFilters}
-            className="button-link"
+            className="button-link text-sm"
           >
             {clearFiltersLabel}
           </button>
@@ -245,7 +327,7 @@ export function FilterBar({
       <div>
         {additionalFilters.length > 0 && (
           <AddFilterButton
-            filters={additionalFilters.map(({ id, label }) => ({ id, label }))}
+            filters={additionalFilters.map((f) => ({ id: f.id, label: 'label' in f ? f.label : f.id }))}
             activeFilterIds={activeAdditionalFilterIds}
             onActivateFilter={activateAdditionalFilter}
             triggerLabel={addFilterButtonLabel}

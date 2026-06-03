@@ -91,7 +91,7 @@ describe('useOrders', () => {
     rerender({ ...defaultParams, page: 2 })
     await waitFor(() => expect(result.current.orders).toHaveLength(2))
 
-    expect(result.current.orders.map((o) => o.id)).toEqual(['ORD-001', 'ORD-002'])
+    expect(result.current.orders.map((o) => o.orderNumber)).toEqual(['ORD-001', 'ORD-002'])
   })
 
   it('includes searchTerm in the query string', async () => {

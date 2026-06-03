@@ -146,9 +146,6 @@ type GridTableContextValue<TItem> = {
 
 const GridTableContext = createContext<GridTableContextValue<unknown> | null>(null)
 
-function joinClassNames(...classNames: Array<string | undefined>) {
-  return clsx(...classNames)
-}
 
 function formatFieldName(fieldName: string): string {
   return fieldName

@@ -10,6 +10,8 @@ export type ParsedFilters = {
   delivery_date_to?: string
   sales_rep?: string
   customer?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }
 
 type HistoryTurn = { query: string; filters: ParsedFilters }
@@ -17,6 +19,7 @@ type HistoryTurn = { query: string; filters: ParsedFilters }
 type UseAiSearchResult = {
   parseQuery: (query: string) => Promise<ParsedFilters>
   clearHistory: () => void
+  injectStateCorrection: (filters: ParsedFilters) => void
   isLoading: boolean
   hasHistory: boolean
   error: string | null
@@ -28,6 +31,12 @@ export function useAiSearch(): UseAiSearchResult {
   const [conversationHistory, setConversationHistory] = useState<HistoryTurn[]>([])
 
   const clearHistory = useCallback(() => setConversationHistory([]), [])
+
+  const injectStateCorrection = useCallback((filters: ParsedFilters) => {
+    setConversationHistory(prev =>
+      [...prev, { query: '[Filters manually updated]', filters }].slice(-5)
+    )
+  }, [])
 
   async function parseQuery(query: string): Promise<ParsedFilters> {
     setIsLoading(true)
@@ -57,5 +66,5 @@ export function useAiSearch(): UseAiSearchResult {
     }
   }
 
-  return { parseQuery, clearHistory, isLoading, hasHistory: conversationHistory.length > 0, error }
+  return { parseQuery, clearHistory, injectStateCorrection, isLoading, hasHistory: conversationHistory.length > 0, error }
 }
