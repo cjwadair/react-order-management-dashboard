@@ -15,17 +15,16 @@ const salesRepFilter: FilterConfig = {
   selectedValue: undefined,
   onSelect: vi.fn(),
   onClear: vi.fn(),
-  additional: true,
 }
 
 describe('FilterBar', () => {
-  it('renders a fixed search filter', () => {
-    render(<FilterBar filters={[{ type: 'search', id: 'search', value: '', onChange: vi.fn(), onClear: vi.fn() }]} />)
+  it('renders a search filter that starts active', () => {
+    render(<FilterBar filters={[{ type: 'search', id: 'search', value: '', onChange: vi.fn(), onClear: vi.fn(), active: true }]} />)
 
     expect(screen.getByRole('searchbox')).toBeInTheDocument()
   })
 
-  it('renders a fixed dropdown filter', () => {
+  it('renders a dropdown filter that starts active', () => {
     render(
       <FilterBar
         filters={[{
@@ -36,6 +35,7 @@ describe('FilterBar', () => {
           selectedValue: undefined,
           onSelect: vi.fn(),
           onClear: vi.fn(),
+          active: true,
         }]}
       />,
     )
@@ -43,7 +43,7 @@ describe('FilterBar', () => {
     expect(screen.getByText('Order Status: Any')).toBeInTheDocument()
   })
 
-  it('activates additional filters from the Add Filter menu', async () => {
+  it('activates inactive filters from the Add Filter menu', async () => {
     const user = userEvent.setup()
 
     render(<FilterBar filters={[salesRepFilter]} />)
@@ -54,13 +54,12 @@ describe('FilterBar', () => {
     expect(screen.getByText('Sales Rep: Any')).toBeInTheDocument()
   })
 
-  it('removes an additional filter from the bar when its value is cleared', async () => {
+  it('removes a filter from the bar when its value is cleared', async () => {
     const user = userEvent.setup()
     const onClear = vi.fn()
 
     render(
       <FilterBar
-        defaultActiveAdditionalFilterIds={['salesRep']}
         filters={[{
           type: 'dropdown',
           id: 'salesRep',
@@ -69,7 +68,7 @@ describe('FilterBar', () => {
           selectedValue: 'Jordan Lee',
           onSelect: vi.fn(),
           onClear,
-          additional: true,
+          active: true,
           placeholderValue: 'Any',
         }]}
       />,
@@ -83,20 +82,20 @@ describe('FilterBar', () => {
     expect(screen.queryByText('Sales Rep: Any')).not.toBeInTheDocument()
   })
 
-  it('hides Add Filter button when no additional filters are configured', () => {
+  it('hides Add Filter button when no non-aiSearch filters are configured', () => {
     render(<FilterBar filters={[]} />)
 
     expect(screen.queryByText('Filter')).not.toBeInTheDocument()
   })
 
   it('hides clear filters control when no filter has a value', () => {
-    render(<FilterBar filters={[{ type: 'search', id: 'search', value: '', onChange: vi.fn(), onClear: vi.fn() }]} />)
+    render(<FilterBar filters={[{ type: 'search', id: 'search', value: '', onChange: vi.fn(), onClear: vi.fn(), active: true }]} />)
 
     expect(screen.queryByRole('button', { name: 'Clear Filters' })).not.toBeInTheDocument()
   })
 
   it('shows clear filters control when a filter has a value', () => {
-    render(<FilterBar filters={[{ type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn() }]} />)
+    render(<FilterBar filters={[{ type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn(), active: true }]} />)
 
     expect(screen.getByRole('button', { name: 'Clear Filters' })).toBeInTheDocument()
   })
@@ -108,9 +107,8 @@ describe('FilterBar', () => {
 
     render(
       <FilterBar
-        defaultActiveAdditionalFilterIds={['salesRep']}
         filters={[
-          { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: onClearSearch },
+          { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: onClearSearch, active: true },
           {
             type: 'dropdown',
             id: 'salesRep',
@@ -119,7 +117,7 @@ describe('FilterBar', () => {
             selectedValue: 'Jordan Lee',
             onSelect: vi.fn(),
             onClear: onClearDropdown,
-            additional: true,
+            active: true,
           },
         ]}
       />,
@@ -131,14 +129,93 @@ describe('FilterBar', () => {
     expect(onClearDropdown).toHaveBeenCalledTimes(1)
   })
 
-  it('does not call onClear on inactive additional filters when clear filters is clicked', async () => {
+  describe('activeByDefault', () => {
+    it('keeps an activeByDefault filter visible after its value is individually cleared', async () => {
+      const user = userEvent.setup()
+      const onClear = vi.fn()
+
+      render(
+        <FilterBar
+          filters={[{
+            type: 'dropdown',
+            id: 'salesRep',
+            label: 'Sales Rep',
+            options: ['Jordan Lee', 'Taylor Kim'],
+            selectedValue: 'Jordan Lee',
+            onSelect: vi.fn(),
+            onClear,
+            active: true,
+            activeByDefault: true,
+            placeholderValue: 'Any',
+          }]}
+        />,
+      )
+
+      await user.click(screen.getByText('Sales Rep: Jordan Lee'))
+      await user.click(screen.getByRole('button', { name: 'Any Sales Rep' }))
+
+      expect(onClear).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Sales Rep: Jordan Lee')).toBeInTheDocument()
+    })
+
+    it('keeps activeByDefault filters visible when Clear Filters is clicked', async () => {
+      const user = userEvent.setup()
+      const onClearSearch = vi.fn()
+      const onClearDropdown = vi.fn()
+
+      render(
+        <FilterBar
+          filters={[
+            { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: onClearSearch, active: true },
+            {
+              type: 'dropdown',
+              id: 'salesRep',
+              label: 'Sales Rep',
+              options: ['Jordan Lee', 'Taylor Kim'],
+              selectedValue: 'Jordan Lee',
+              onSelect: vi.fn(),
+              onClear: onClearDropdown,
+              active: true,
+              activeByDefault: true,
+            },
+          ]}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Clear Filters' }))
+
+      expect(onClearSearch).toHaveBeenCalledTimes(1)
+      expect(onClearDropdown).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+      expect(screen.getByText('Sales Rep: Jordan Lee')).toBeInTheDocument()
+    })
+
+    it('keeps an activeByDefault search filter visible when its value is cleared', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+
+      render(
+        <FilterBar
+          filters={[{ type: 'search', id: 'search', value: 'acme', onChange, onClear: vi.fn(), active: true, activeByDefault: true }]}
+        />,
+      )
+
+      const input = screen.getByRole('searchbox')
+      await user.clear(input)
+
+      expect(onChange).toHaveBeenLastCalledWith('')
+      expect(screen.getByRole('searchbox')).toBeInTheDocument()
+    })
+  })
+
+  it('does not call onClear on inactive filters when clear filters is clicked', async () => {
     const user = userEvent.setup()
     const onClear = vi.fn()
 
     render(
       <FilterBar
         filters={[
-          { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn() },
+          { type: 'search', id: 'search', value: 'acme', onChange: vi.fn(), onClear: vi.fn(), active: true },
           {
             type: 'dropdown',
             id: 'salesRep',
@@ -147,7 +224,6 @@ describe('FilterBar', () => {
             selectedValue: undefined,
             onSelect: vi.fn(),
             onClear,
-            additional: true,
           },
         ]}
       />,

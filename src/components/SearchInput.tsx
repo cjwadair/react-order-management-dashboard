@@ -16,7 +16,7 @@ type SearchInputProps = {
 const defaultClassName = 'relative text-base text-neutral-600'
 
 const defaultInputClassName =
-  'block w-full rounded-md border border-neutral-400 bg-white py-2 pl-9 pr-9 focus:border-neutral-500 focus:ring-neutral-500 sm:text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-400'
+  'block w-full rounded-md border border-neutral-400 bg-white py-2 pl-9 pr-9 focus:border-accent-800 sm:text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-400'
 
 const defaultIconClassName = 'absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500'
 

@@ -8,10 +8,6 @@ afterEach(() => {
 })
 
 describe('AddFilterButton', () => {
-  function getAddFilterDetails() {
-    return screen.getByText('Filter').closest('details') as HTMLDetailsElement
-  }
-
   it('shows only inactive filter options', async () => {
     const user = userEvent.setup()
 
@@ -26,10 +22,10 @@ describe('AddFilterButton', () => {
       />,
     )
 
-    await user.click(screen.getByText('Filter'))
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
 
-    expect(screen.queryByRole('button', { name: 'Delivery Date' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sales Rep' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Delivery Date' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Sales Rep' })).toBeInTheDocument()
   })
 
   it('calls onActivateFilter with selected filter id and closes menu', async () => {
@@ -47,11 +43,11 @@ describe('AddFilterButton', () => {
       />,
     )
 
-    await user.click(screen.getByText('Filter'))
-    await user.click(screen.getByRole('button', { name: 'Sales Rep' }))
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    await user.click(screen.getByRole('option', { name: 'Sales Rep' }))
 
     expect(onActivateFilter).toHaveBeenCalledWith('salesRep')
-    expect(getAddFilterDetails()).not.toHaveAttribute('open')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
   it('closes when clicking outside', async () => {
@@ -68,11 +64,12 @@ describe('AddFilterButton', () => {
       </div>,
     )
 
-    await user.click(screen.getByText('Filter'))
-    expect(screen.getByRole('button', { name: 'Delivery Date' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+
+    expect(screen.getByRole('option', { name: 'Delivery Date' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Outside' }))
 
-    expect(getAddFilterDetails()).not.toHaveAttribute('open')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })

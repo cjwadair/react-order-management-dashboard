@@ -60,6 +60,8 @@ describe('DateRangeFilter', () => {
       />,
     )
 
+    await user.click(screen.getByRole('button', { name: /order date/i }))
+
     await user.click(screen.getByRole('button', { name: /clear range/i }))
 
     expect(onChange).toHaveBeenCalledOnce()
@@ -68,7 +70,7 @@ describe('DateRangeFilter', () => {
     expect(update.to).toBeInstanceOf(Date)
   })
 
-  it('renders "From" and "To" section headings', () => {
+  it('renders "From" and "To" section headings', async() => {
     render(
       <DateRangeFilter
         label="Order Date"
@@ -77,11 +79,13 @@ describe('DateRangeFilter', () => {
       />,
     )
 
+    await userEvent.click(screen.getByRole('button', { name: /order date/i }))
+
     expect(screen.getByText('From')).toBeInTheDocument()
     expect(screen.getByText('To')).toBeInTheDocument()
   })
 
-  it('disables days after "to" date in the From picker', () => {
+  it('disables days after "to" date in the From picker', async() => {
     const fromDate = new Date(2026, 3, 1) // 01 Apr 2026
 
     render(
@@ -92,14 +96,17 @@ describe('DateRangeFilter', () => {
       />,
     )
 
+    await userEvent.click(screen.getByRole('button', { name: /order date/i }))
+
     // Days after toDate (18 Apr) should be disabled in the From calendar
     const fromSection = screen.getByText('From').closest('div')!.parentElement!
     const disabledButtons = fromSection.querySelectorAll('button:disabled')
     expect(disabledButtons.length).toBeGreaterThan(0)
   })
 
-  it('disables days before "from" date in the To picker', () => {
-    const fromDate = new Date(2026, 4, 10) // 10 Apr 2026 
+  it('disables days before "from" date in the To picker', async () => {
+    const user = userEvent.setup()
+    const fromDate = new Date(2026, 3, 10) // 10 Apr 2026
 
     render(
       <DateRangeFilter
@@ -108,6 +115,8 @@ describe('DateRangeFilter', () => {
         onChange={vi.fn()}
       />,
     )
+
+    await user.click(screen.getByRole('button', { name: /order date/i }))
 
     // Days before fromDate (10 Apr) should be disabled in the To calendar
     const toSection = screen.getByText('To').closest('div')!.parentElement!

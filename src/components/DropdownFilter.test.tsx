@@ -9,7 +9,7 @@ afterEach(() => {
 
 describe('DropdownFilter', () => {
   function getDropdownDetailsByLabel(label: string) {
-    return screen.getByText(label).closest('details') as HTMLDetailsElement
+    return screen.getByText(label).closest('div') as HTMLDivElement
   }
 
   it('renders placeholder when no selected value exists', () => {
@@ -60,7 +60,7 @@ describe('DropdownFilter', () => {
     await user.click(screen.getByRole('button', { name: 'Pending' }))
 
     expect(onSelect).toHaveBeenCalledWith('Pending')
-    expect(getDropdownDetailsByLabel('Status: All')).not.toHaveAttribute('open')
+    expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
   })
 
   it('calls onSelect with undefined when clear option is clicked', async () => {
@@ -77,10 +77,13 @@ describe('DropdownFilter', () => {
     )
 
     await user.click(screen.getByText('Status: Pending'))
+
+    expect(screen.getByRole('button', { name: 'All Statuses' })).toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: 'All Statuses' }))
 
     expect(onSelect).toHaveBeenCalledWith(undefined)
-    expect(getDropdownDetailsByLabel('Status: Pending')).not.toHaveAttribute('open')
+    expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
   })
 
   it('uses singular default clear label when placeholder is Any', async () => {
@@ -151,6 +154,6 @@ describe('DropdownFilter', () => {
 
     await user.click(screen.getByRole('button', { name: 'Outside' }))
 
-    expect(getDropdownDetailsByLabel('Status: All')).not.toHaveAttribute('open')
+    expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
   })
 })

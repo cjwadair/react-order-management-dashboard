@@ -59,7 +59,7 @@ describe('useOrders', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     expect(result.current.orders).toHaveLength(1)
-    expect(result.current.orders[0]).toMatchObject({ id: 'ORD-123', customer: 'Beta LLC' })
+    expect(result.current.orders[0]).toMatchObject({ orderNumber: 'ORD-123', customer: 'Beta LLC' })
     expect(result.current.error).toBeNull()
   })
 

@@ -44,6 +44,7 @@ export function DateRangeFilter({ label, value, onChange, onClear }: DateRangeFi
               <DayPicker
                 mode="single"
                 selected={value.from}
+                defaultMonth={value.from ?? value.to}
                 disabled={{ after: value.to }}
                 onSelect={(date) => onChange({ from: date })}
               />
@@ -54,6 +55,7 @@ export function DateRangeFilter({ label, value, onChange, onClear }: DateRangeFi
               <DayPicker
                 mode="single"
                 selected={value.to}
+                defaultMonth={value.to}
                 disabled={value.from ? { before: value.from } : undefined}
                 onSelect={(date) => date && onChange({ to: date })}
               />
