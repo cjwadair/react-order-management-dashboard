@@ -4,6 +4,7 @@ import { AiSearchBar } from './AiSearchBar'
 import { DateRangeFilter } from './DateRangeFilter'
 import { DropdownFilter } from './DropdownFilter'
 import { SearchInput } from './SearchInput'
+import { RangeFilter } from './RangeFilter'
 
 type DropdownPlaceholder = 'Any' | 'All'
 
@@ -23,8 +24,19 @@ type DateRangeFilterConfig = {
   type: 'dateRange'
   id: string
   label: string
-  value: { from: Date | undefined; to: Date }
-  onChange: (update: Partial<{ from: Date | undefined; to: Date }>) => void
+  value: { from: Date | undefined; to: Date | undefined }
+  onChange: (update: Partial<{ from: Date | undefined; to: Date | undefined }>) => void
+  onClear: () => void
+  active?: boolean
+  activeByDefault?: boolean
+}
+
+type RangeFilterConfig = {
+  type: 'range'
+  id: string
+  label: string
+  value: { from: number | undefined; to: number | undefined }
+  onChange: (update: Partial<{ from: number | undefined; to: number | undefined }>) => void
   onClear: () => void
   active?: boolean
   activeByDefault?: boolean
@@ -56,7 +68,7 @@ export type AiSearchFilterConfig = {
   activeByDefault?: boolean
 }
 
-export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | DropdownFilterConfig | AiSearchFilterConfig
+export type FilterConfig = SearchFilterConfig | DateRangeFilterConfig | DropdownFilterConfig | AiSearchFilterConfig | RangeFilterConfig
 
 type FilterBarProps = {
   filters?: readonly FilterConfig[]
@@ -82,6 +94,7 @@ function filterHasValue(filter: FilterConfig): boolean {
     case 'dateRange': return filter.value.from !== undefined
     case 'dropdown':  return filter.selectedValue !== undefined
     case 'aiSearch':  return filter.hasHistory
+    case 'range':     return filter.value.from !== undefined || filter.value.to !== undefined
   }
 }
 
@@ -176,6 +189,18 @@ export function FilterBar({
       case 'dateRange':
         return (
           <DateRangeFilter
+            label={filter.label}
+            value={filter.value}
+            onChange={filter.onChange}
+            onClear={() => {
+              filter.onClear()
+              if (!filter.activeByDefault) deactivateFilter(filter.id)
+            }}
+          />
+        )
+      case 'range':
+        return (
+          <RangeFilter
             label={filter.label}
             value={filter.value}
             onChange={filter.onChange}

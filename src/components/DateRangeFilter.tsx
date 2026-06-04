@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react'
 import { formattedDate } from '../utils/formatters'
 import { useClickOutside } from '../hooks/useClickOutside'
 
-type DateRange = { from: Date | undefined; to: Date }
+type DateRange = { from: Date | undefined; to: Date | undefined }
 
 type DateRangeFilterProps = {
   label: string
@@ -16,7 +16,7 @@ type DateRangeFilterProps = {
 
 export function DateRangeFilter({ label, value, onChange, onClear }: DateRangeFilterProps) {
   const rangeLabel = useMemo(() => {
-    return `${label}: ${value.from ? formattedDate(value.from) : 'Any'} to ${formattedDate(value.to)}`
+    return `${label}: ${value.from ? formattedDate(value.from) : 'Any'} to ${value.to ? formattedDate(value.to) : 'Any'}`
   }, [label, value])
 
   const detailsRef = useRef<HTMLDivElement>(null)
@@ -45,7 +45,7 @@ export function DateRangeFilter({ label, value, onChange, onClear }: DateRangeFi
                 mode="single"
                 selected={value.from}
                 defaultMonth={value.from ?? value.to}
-                disabled={{ after: value.to }}
+                disabled={value.to ? { after: value.to } : undefined}
                 onSelect={(date) => onChange({ from: date })}
               />
             </div>

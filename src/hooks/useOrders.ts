@@ -37,10 +37,6 @@ type SalesOrderMeta = {
   total_pages: number
 }
 
-export type AdditionalFilterId = 'deliveryDate' | 'salesRep' | 'customer'
-
-export type AdditionalFilterValues = Partial<Record<AdditionalFilterId, string>>
-
 type UseOrdersParams = {
   searchTerm: string
   orderDateFrom: Date | undefined
@@ -48,7 +44,10 @@ type UseOrdersParams = {
   deliveryDateFrom: Date | undefined
   deliveryDateTo: Date | undefined
   selectedStatus: OrderStatus | undefined
-  additionalFilterValues: AdditionalFilterValues
+  salesRep: string | undefined
+  customer: string | undefined
+  orderTotalMin: number | undefined
+  orderTotalMax: number | undefined
   sort: SortState<Order>
   page: number
 }
@@ -88,9 +87,12 @@ export function useOrders({
   orderDateFrom,
   orderDateTo,
   deliveryDateFrom,
-  deliveryDateTo, 
+  deliveryDateTo,
   selectedStatus,
-  additionalFilterValues,
+  salesRep,
+  customer,
+  orderTotalMin,
+  orderTotalMax,
   sort,
   page,
 }: UseOrdersParams): UseOrdersResult {
@@ -114,8 +116,10 @@ export function useOrders({
     if (orderDateTo) params.set('order_date_to', orderDateTo.toISOString().slice(0, 10))
     if (deliveryDateFrom) params.set('delivery_date_from', deliveryDateFrom.toISOString().slice(0, 10))
     if (deliveryDateTo) params.set('delivery_date_to', deliveryDateTo.toISOString().slice(0, 10))
-    if (additionalFilterValues.salesRep) params.set('sales_rep', additionalFilterValues.salesRep)
-    if (additionalFilterValues.customer) params.set('customer', additionalFilterValues.customer)
+    if (salesRep) params.set('sales_rep', salesRep)
+    if (customer) params.set('customer', customer)
+    if (orderTotalMin !== undefined) params.set('order_total_min', orderTotalMin.toString())
+    if (orderTotalMax !== undefined) params.set('order_total_max', orderTotalMax.toString())
     params.set('sort_by', camelToSnakeCase(sort.field))
     params.set('sort_order', sort.order)
     if (page > 1) params.set('page', page.toString())
@@ -153,7 +157,7 @@ export function useOrders({
       })
 
     return () => { controller.abort(); prevPageRef.current = 0 }
-  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, additionalFilterValues, sort, page])
+  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, salesRep, customer, orderTotalMin, orderTotalMax, sort, page])
 
   return { orders, isLoading: fetchState.isLoading, isFetching: fetchState.isFetching, error: fetchState.error, totalPages }
 }

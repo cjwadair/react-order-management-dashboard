@@ -9,7 +9,6 @@ import {
   useOrders,
   type Order,
   type OrderStatus,
-  type AdditionalFilterValues,
 } from '../hooks/useOrders'
 import { PageHeader } from '../components/PageHeader'
 import { useFilterOptions } from '../hooks/useFilterOptions'
@@ -85,8 +84,12 @@ export function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | undefined>()
   const [sort, setSort] = useState<SortState<Order>>({ field: 'orderDate', order: 'desc' })
   const [page, setPage] = useState(1)
-  const [additionalFilterValues, setAdditionalFilterValues] = useState<AdditionalFilterValues>({})
+  const [selectedSalesRep, setSelectedSalesRep] = useState<string | undefined>()
+  const [selectedCustomer, setSelectedCustomer] = useState<string | undefined>()
+  const [orderTotalMin, setOrderTotalMin] = useState<number | undefined>()
+  const [orderTotalMax, setOrderTotalMax] = useState<number | undefined>()
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(() => new Set(['aiSearch']))
+  // const [order]
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -97,17 +100,18 @@ export function OrdersPage() {
     deliveryDateFrom: dateFilters.deliveryDate.from,
     deliveryDateTo: dateFilters.deliveryDate.to,
     selectedStatus,
-    additionalFilterValues,
+    salesRep: selectedSalesRep,
+    customer: selectedCustomer,
+    orderTotalMin,
+    orderTotalMax,
     sort,
     page,
   })
 
   const filterOptions = useFilterOptions()
 
-  const setAdditionalFilterValue = useCallback((filterId: keyof AdditionalFilterValues, value: string | undefined) => {
-    setAdditionalFilterValues((prev) => ({ ...prev, [filterId]: value }))
-    setPage(1)
-  }, [])
+  const handleSetSalesRep = useCallback((v: string | undefined) => { setSelectedSalesRep(v); setPage(1) }, [])
+  const handleSetCustomer = useCallback((v: string | undefined) => { setSelectedCustomer(v); setPage(1) }, [])
 
   const setDateFilter = useCallback((key: keyof typeof dateFilters, update: Partial<{ from: Date | undefined; to: Date }>) => {
     setDateFilters((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }))
@@ -126,8 +130,14 @@ export function OrdersPage() {
     setDateFilter,
     selectedStatus,
     setSelectedStatus,
-    additionalFilterValues,
-    setAdditionalFilterValue,
+    salesRep: selectedSalesRep,
+    setSalesRep: handleSetSalesRep,
+    customer: selectedCustomer,
+    setCustomer: handleSetCustomer,
+    orderTotalMin,
+    setOrderTotalMin,
+    orderTotalMax,
+    setOrderTotalMax,
     filterOptions,
     setPage,
     setSort,

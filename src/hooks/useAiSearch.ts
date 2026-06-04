@@ -10,6 +10,8 @@ export type ParsedFilters = {
   delivery_date_to?: string
   sales_rep?: string
   customer?: string
+  order_total_min?: number
+  order_total_max?: number
   sort_by?: string
   sort_order?: 'asc' | 'desc'
 }

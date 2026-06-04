@@ -10,7 +10,10 @@ const defaultParams = {
   deliveryDateFrom: undefined,
   deliveryDateTo: undefined,
   selectedStatus: undefined,
-  additionalFilterValues: {},
+  salesRep: undefined,
+  customer: undefined,
+  orderTotalMin: undefined,
+  orderTotalMax: undefined,
   sort: { field: 'orderDate' as const, order: 'desc' as const },
   page: 1,
 }

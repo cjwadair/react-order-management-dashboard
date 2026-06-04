@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { type SortState } from '../components/GridTable'
 import { type FilterConfig } from '../components/FilterBar'
 import { useAiSearch, type ParsedFilters } from './useAiSearch'
-import { orderStatuses, type Order, type OrderStatus, type AdditionalFilterValues } from './useOrders'
+import { orderStatuses, type Order, type OrderStatus } from './useOrders'
 
 type DateFilter = { from: Date | undefined; to: Date }
 
@@ -38,8 +38,14 @@ export type UseOrderFiltersParams = {
   setDateFilter: (filterId: 'orderDate' | 'deliveryDate', update: Partial<DateFilter>) => void
   selectedStatus: OrderStatus | undefined
   setSelectedStatus: (value: OrderStatus | undefined) => void
-  additionalFilterValues: AdditionalFilterValues
-  setAdditionalFilterValue: (filterId: keyof AdditionalFilterValues, value: string | undefined) => void
+  salesRep: string | undefined
+  setSalesRep: (v: string | undefined) => void
+  customer: string | undefined
+  setCustomer: (v: string | undefined) => void
+  orderTotalMin: number | undefined
+  setOrderTotalMin: (v: number | undefined) => void
+  orderTotalMax: number | undefined
+  setOrderTotalMax: (v: number | undefined) => void
   filterOptions: {
     salesReps: string[]
     customers: string[]
@@ -53,7 +59,8 @@ export function useOrderFilters({
   searchTerm, setSearchTerm,
   dateFilters, setDateFilter,
   selectedStatus, setSelectedStatus,
-  additionalFilterValues, setAdditionalFilterValue,
+  salesRep, setSalesRep, customer, setCustomer,
+  orderTotalMin, setOrderTotalMin, orderTotalMax, setOrderTotalMax,
   filterOptions, setPage,
   setSort, setActiveFilterIds,
 }: UseOrderFiltersParams): FilterConfig[] {
@@ -82,9 +89,12 @@ export function useOrderFilters({
     if (parsed.delivery_date_from !== undefined || parsed.delivery_date_to !== undefined) activateIds.add('deliveryDate')
     if (parsed.sales_rep !== undefined) activateIds.add('salesRep')
     if (parsed.customer !== undefined) activateIds.add('customer')
+    if (parsed.order_total_min !== undefined || parsed.order_total_max !== undefined) activateIds.add('orderTotal')
 
-    setAdditionalFilterValue('salesRep', parsed.sales_rep)
-    setAdditionalFilterValue('customer', parsed.customer)
+    setSalesRep(parsed.sales_rep)
+    setCustomer(parsed.customer)
+    setOrderTotalMin(parsed.order_total_min)
+    setOrderTotalMax(parsed.order_total_max)
     activateIds.add('aiSearch')
     setActiveFilterIds(activateIds)
 
@@ -95,7 +105,7 @@ export function useOrderFilters({
     )
 
     setPage(1)
-  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setAdditionalFilterValue, setActiveFilterIds, setSort, setPage])
+  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setActiveFilterIds, setSort, setPage])
 
   const buildCurrentParsedFilters = useCallback((overrides: Partial<ParsedFilters> = {}): ParsedFilters => ({
     search: searchTerm || undefined,
@@ -104,10 +114,10 @@ export function useOrderFilters({
     order_date_to: dateFilters.orderDate.from !== undefined ? toIso(dateFilters.orderDate.to) : undefined,
     delivery_date_from: toIso(dateFilters.deliveryDate.from),
     delivery_date_to: dateFilters.deliveryDate.from !== undefined ? toIso(dateFilters.deliveryDate.to) : undefined,
-    sales_rep: additionalFilterValues.salesRep || undefined,
-    customer: additionalFilterValues.customer || undefined,
+    sales_rep: salesRep || undefined,
+    customer: customer || undefined,
     ...overrides,
-  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, additionalFilterValues])
+  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer])
 
   return useMemo<FilterConfig[]>(() => [
     {
@@ -189,12 +199,12 @@ export function useOrderFilters({
       id: 'salesRep',
       label: 'Sales Rep',
       options: filterOptions.salesReps,
-      selectedValue: additionalFilterValues.salesRep,
+      selectedValue: salesRep,
       onSelect: (value) => {
-        setAdditionalFilterValue('salesRep', value)
+        setSalesRep(value)
         if (hasHistory) injectStateCorrection(buildCurrentParsedFilters({ sales_rep: value }))
       },
-      onClear: () => setAdditionalFilterValue('salesRep', undefined),
+      onClear: () => setSalesRep(undefined),
       placeholderValue: 'Any',
     },
     {
@@ -202,17 +212,31 @@ export function useOrderFilters({
       id: 'customer',
       label: 'Customer',
       options: filterOptions.customers,
-      selectedValue: additionalFilterValues.customer,
+      selectedValue: customer,
       onSelect: (value) => {
-        setAdditionalFilterValue('customer', value)
+        setCustomer(value)
         if (hasHistory) injectStateCorrection(buildCurrentParsedFilters({ customer: value }))
       },
-      onClear: () => setAdditionalFilterValue('customer', undefined),
+      onClear: () => setCustomer(undefined),
       placeholderValue: 'Any',
     },
+    {
+      type: 'range',
+      id: 'orderTotal',
+      label: 'Order Total',
+      value: { from: orderTotalMin, to: orderTotalMax },
+      onChange: (update) => {
+        if ('from' in update) setOrderTotalMin(update.from)
+        if ('to' in update) setOrderTotalMax(update.to)
+        setPage(1)
+      },
+      onClear: () => { setOrderTotalMin(undefined); setOrderTotalMax(undefined); setPage(1) },
+      active: true,
+    },
   ], [
-    filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, additionalFilterValues,
-    setSearchTerm, setSelectedStatus, setDateFilter, setAdditionalFilterValue, setPage,
+    filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, salesRep, customer,
+    orderTotalMin, orderTotalMax,
+    setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setPage,
     handleAiSearch, clearHistory, hasHistory, isAiLoading, aiError, injectStateCorrection, buildCurrentParsedFilters,
   ])
 }
